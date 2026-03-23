@@ -6,12 +6,13 @@ import (
 )
 
 type Task struct {
-	id          int
+	id          uint32
 	name        string
 	description string
 	status      valueobjects.Status
-	board       Board
+	boardId     uint32
 	created_at  time.Time
 	due_to      time.Time
-	assignee    User
+	assigneeId  uint32
+	reporterId  uint32
 }

@@ -6,14 +6,11 @@ import (
 )
 
 type Sprint struct {
-	ID        int
+	ID        uint32
 	Name      string
-	Goal      string
 	StartDate time.Time
 	EndDate   time.Time
 	Status    valueobjects.SprintStatus
-	BoardID   int
-
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	BoardID   uint32
+	TasksId   uint32
 }
