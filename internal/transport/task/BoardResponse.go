@@ -2,7 +2,7 @@ package dto
 
 import "time"
 
-type ResponseBoard struct {
+type BoardResponse struct {
 	Id        uint32    `json:"id"`
 	TeamId    uint32    `json:"team_id"`
 	IsPublic  bool      `json:"is_public"`

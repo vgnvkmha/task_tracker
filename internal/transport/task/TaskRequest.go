@@ -2,7 +2,7 @@ package dto
 
 import "time"
 
-type RequestTask struct {
+type TaskRequest struct {
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
 	BoardID     uint32    `json:"board_id"`
