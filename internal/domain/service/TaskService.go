@@ -14,8 +14,14 @@ import (
 
 type ITaskService interface {
 	Create(ctx context.Context, task dto.TaskRequest) (models.Task, error)
+
+	GetActive(ctx context.Context) ([]models.Task, error)
+
 	ChangeStatus(ctx context.Context, id uint32, status vo.Status) error
 	ChangeBoard(ctx context.Context, boardId uint32) error
+	ChangeAssign(ctx context.Context, assignId uint32) error
+	ChangeReporter(ctx context.Context, reporterId uint32) error
+	ChangeSprint(ctx context.Context, sprint models.Sprint)
 }
 
 type TaskService struct {
@@ -43,6 +49,9 @@ func (s *TaskService) Create(ctx context.Context, task dto.TaskRequest) (models.
 		task.DueTo,
 	)
 	if err != nil {
+		s.logger.Infow("Mapping error",
+			"operation", "Create",
+		)
 		return models.Task{}, err
 	}
 	return s.repo.Create(ctx, model)

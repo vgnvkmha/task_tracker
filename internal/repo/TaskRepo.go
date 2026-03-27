@@ -49,5 +49,46 @@ func (r *TaskRepo) Create(ctx context.Context, task models.Task) (models.Task, e
 }
 
 func (r *TaskRepo) Get(ctx context.Context, id uint32) (models.Task, error) {
-	return models.Task{}, nil
+	var task models.Task
+
+	query := `
+		SELECT *
+		FROM task
+		WHERE id = $1
+		LIMIT = 1
+	`
+	err := r.db.QueryRowContext(ctx, query, id).Scan(
+		&task.Id,
+		&task.Name,
+		&task.Description,
+		&task.Status,
+		&task.BoardId,
+		&task.CreatedAt,
+		&task.DueTo,
+		&task.AssigneeId,
+		&task.ReporterId,
+	)
+
+	if err != nil {
+		return models.Task{}, err
+	}
+
+	return task, nil
+}
+
+func (r *TaskRepo) Update(ctx context.Context, task models.Task) error {
+	query := `
+		UPDATE task
+		SET status = $1
+		WHERE id = $2
+	`
+
+	_, err := r.db.ExecContext(
+		ctx,
+		query,
+		task.Status,
+		task.Id,
+	)
+
+	return err
 }

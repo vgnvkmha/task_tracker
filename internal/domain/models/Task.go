@@ -17,6 +17,7 @@ type Task struct {
 	DueTo       time.Time
 	AssigneeId  uint32
 	ReporterId  uint32
+	Sprint      Sprint
 }
 
 func NewTask(
