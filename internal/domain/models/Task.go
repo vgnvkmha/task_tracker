@@ -3,19 +3,20 @@ package models
 import (
 	"errors"
 	valueobjects "task_tracker/internal/domain/models/value_objects"
+	"task_tracker/internal/domain/validation"
 	"time"
 )
 
 type Task struct {
-	id          uint32
-	name        string
-	description string
-	status      valueobjects.Status
-	boardId     uint32
-	created_at  time.Time
-	due_to      time.Time
-	assigneeId  uint32
-	reporterId  uint32
+	Id          uint32
+	Name        string
+	Description string
+	Status      valueobjects.Status
+	BoardId     uint32
+	CreatedAt   time.Time
+	DueTo       time.Time
+	AssigneeId  uint32
+	ReporterId  uint32
 }
 
 func NewTask(
@@ -32,13 +33,27 @@ func NewTask(
 	}
 
 	return Task{
-		name:        name,
-		description: description,
-		status:      valueobjects.InProgress,
-		boardId:     boardId,
-		created_at:  time.Now(),
-		due_to:      dueTo,
-		assigneeId:  assigneeId,
-		reporterId:  reporterId,
+		Name:        name,
+		Description: description,
+		Status:      valueobjects.InProgress,
+		BoardId:     boardId,
+		CreatedAt:   time.Now(),
+		DueTo:       dueTo,
+		AssigneeId:  assigneeId,
+		ReporterId:  reporterId,
 	}, nil
+}
+
+func (t *Task) ChangeStatus(newStatus valueobjects.Status) error {
+
+	if !newStatus.IsValid() {
+		return errors.New("invalid status")
+	}
+
+	if !validation.IsValidStatusTransition(t.Status, newStatus) {
+		return errors.New("invalid status transition")
+	}
+
+	t.Status = newStatus
+	return nil
 }

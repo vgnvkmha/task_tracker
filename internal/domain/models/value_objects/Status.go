@@ -8,3 +8,12 @@ const (
 	Done       Status = "done"
 	Closed     Status = "closed"
 )
+
+func (s Status) IsValid() bool {
+	switch s {
+	case Todo, InProgress, Done, Closed:
+		return true
+	default:
+		return false
+	}
+}

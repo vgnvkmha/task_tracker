@@ -2,22 +2,38 @@ package service
 
 import (
 	"context"
+	"errors"
 	"task_tracker/internal/domain/models"
+	valueobjects "task_tracker/internal/domain/models/value_objects" //TODO: 2 vo imports
+	vo "task_tracker/internal/domain/models/value_objects"
 	"task_tracker/internal/repo"
 	dto "task_tracker/internal/transport/task"
+
+	"go.uber.org/zap"
 )
 
 type ITaskService interface {
-	createTask(task dto.TaskRequest, ctx context.Context) (models.Task, error)
-	changeStatus(status string, ctx context.Context) error
-	changeBoard(boardId uint32, ctx context.Context) error
+	Create(ctx context.Context, task dto.TaskRequest) (models.Task, error)
+	ChangeStatus(ctx context.Context, id uint32, status vo.Status) error
+	ChangeBoard(ctx context.Context, boardId uint32) error
 }
 
 type TaskService struct {
-	repo *repo.ITaskRepo
+	repo   repo.ITaskRepo
+	logger *zap.SugaredLogger
 }
 
-func (s *TaskService) createTask(task dto.TaskRequest, ctx context.Context) (models.Task, error) {
+func New(repo repo.ITaskRepo, logger *zap.SugaredLogger) *TaskService {
+	return &TaskService{
+		repo: repo,
+		logger: logger.With(
+			"module", "task",
+			"layer", "service",
+		),
+	}
+}
+
+func (s *TaskService) Create(ctx context.Context, task dto.TaskRequest) (models.Task, error) {
 	model, err := models.NewTask(
 		task.Name,
 		task.Description,
@@ -29,5 +45,46 @@ func (s *TaskService) createTask(task dto.TaskRequest, ctx context.Context) (mod
 	if err != nil {
 		return models.Task{}, err
 	}
-	return model, nil
+	return s.repo.Create(ctx, model)
+}
+
+func (s *TaskService) ChangeStatus(
+	ctx context.Context,
+	id uint32,
+	status valueobjects.Status,
+) error {
+
+	const op = "task.ChangeStatus"
+
+	if !status.IsValid() {
+		err := errors.New("invalid status")
+
+		s.logger.Infow("invalid status",
+			"operation", op,
+			"status", status,
+		)
+
+		return err
+	}
+
+	task, err := s.repo.Get(ctx, id)
+	if err != nil {
+		s.logger.Infow("task not found",
+			"operation", op,
+			"id", id,
+		)
+		return err
+	}
+
+	err = task.ChangeStatus(status)
+	if err != nil {
+		s.logger.Infow("invalid status transition",
+			"operation", op,
+			"from", task.Status,
+			"to", status,
+		)
+		return err
+	}
+
+	return s.repo.Update(ctx, task)
 }
