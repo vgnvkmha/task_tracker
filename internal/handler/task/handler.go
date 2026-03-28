@@ -67,3 +67,26 @@ func (h *handler) ListActive(ctx *gin.Context) {
 		"active_tasks": tasks,
 	})
 }
+
+func (h *handler) ChangeStatus(ctx *gin.Context) {
+	input := ctx.Param("status")
+	idStr := ctx.Param("id")
+
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		ctx.JSON(400, gin.H{"error": "invalid id"})
+		return
+	}
+
+	status, err := h.service.ChangeStatus(ctx.Request.Context(), uint32(id), input)
+	if err != nil {
+		ctx.JSON(400, gin.H{
+			"error": err,
+		})
+		return
+	}
+	ctx.JSON(201, gin.H{
+		"task_id":    id,
+		"new_status": status,
+	})
+}

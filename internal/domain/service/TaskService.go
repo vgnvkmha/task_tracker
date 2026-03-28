@@ -5,7 +5,7 @@ import (
 	"errors"
 	"task_tracker/internal/domain/models"
 	valueobjects "task_tracker/internal/domain/models/value_objects" //TODO: 2 vo imports
-	vo "task_tracker/internal/domain/models/value_objects"
+	"task_tracker/internal/domain/validation"
 	"task_tracker/internal/repo"
 	dto "task_tracker/internal/transport/task"
 
@@ -18,7 +18,7 @@ type TaskService interface {
 	GetActiveTasksByTeam(ctx context.Context, id uint32) ([]models.Task, error)
 	GetTeamById(ctx context.Context, id uint32) (models.Team, error)
 
-	ChangeStatus(ctx context.Context, id uint32, status vo.Status) (valueobjects.Status, error)
+	ChangeStatus(ctx context.Context, id uint32, input string) (valueobjects.Status, error)
 	ChangeBoard(ctx context.Context, boardId uint32) (models.Board, error)
 	ChangeAssign(ctx context.Context, assignId uint32) (models.User, error)
 	ChangeReporter(ctx context.Context, reporterId uint32) (models.User, error)
@@ -69,6 +69,7 @@ func (s *service) GetActiveTasksByTeam(ctx context.Context, id uint32) ([]models
 	}
 	return tasks, nil
 }
+
 func (s *service) GetTeamById(ctx context.Context, id uint32) (models.Team, error) {
 	team, err := s.repo.GetTeam(ctx, id)
 	if err != nil {
@@ -84,17 +85,25 @@ func (s *service) GetTeamById(ctx context.Context, id uint32) (models.Team, erro
 func (s *service) ChangeStatus(
 	ctx context.Context,
 	id uint32,
-	status valueobjects.Status,
+	input string,
 ) error {
 
 	const op = "task.ChangeStatus"
 
-	if !status.IsValid() {
+	newStatus, err := validation.ParseStatus(input)
+	if err != nil {
+		s.logger.Infow(err.Error(),
+			"operation", op,
+		)
+		return err
+	}
+
+	if !newStatus.IsValid() {
 		err := errors.New("Invalid Status")
 
 		s.logger.Infow("Invalid Status",
 			"operation", op,
-			"status", status,
+			"input", input,
 		)
 
 		return err
@@ -110,12 +119,12 @@ func (s *service) ChangeStatus(
 		return err
 	}
 
-	err = task.ChangeStatus(status)
+	err = task.ChangeStatus(newStatus)
 	if err != nil {
 		s.logger.Infow("Invalid Status Transition",
 			"operation", op,
 			"from", task.Status,
-			"to", status,
+			"to", input,
 			"error", err,
 		)
 		return err
