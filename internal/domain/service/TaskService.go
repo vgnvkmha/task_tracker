@@ -12,25 +12,25 @@ import (
 	"go.uber.org/zap"
 )
 
-type ITaskService interface {
+type TaskService interface {
 	Create(ctx context.Context, task dto.TaskRequest) (models.Task, error)
 
 	GetActive(ctx context.Context) ([]models.Task, error)
 
-	ChangeStatus(ctx context.Context, id uint32, status vo.Status) error
-	ChangeBoard(ctx context.Context, boardId uint32) error
-	ChangeAssign(ctx context.Context, assignId uint32) error
-	ChangeReporter(ctx context.Context, reporterId uint32) error
-	ChangeSprint(ctx context.Context, sprint models.Sprint)
+	ChangeStatus(ctx context.Context, id uint32, status vo.Status) (valueobjects.Status, error)
+	ChangeBoard(ctx context.Context, boardId uint32) (models.Board, error)
+	ChangeAssign(ctx context.Context, assignId uint32) (models.User, error)
+	ChangeReporter(ctx context.Context, reporterId uint32) (models.User, error)
+	ChangeSprint(ctx context.Context, sprint models.Sprint) (models.Sprint, error)
 }
 
-type TaskService struct {
-	repo   repo.ITaskRepo
+type service struct {
+	repo   repo.TaskRepo
 	logger *zap.SugaredLogger
 }
 
-func New(repo repo.ITaskRepo, logger *zap.SugaredLogger) *TaskService {
-	return &TaskService{
+func New(repo repo.TaskRepo, logger *zap.SugaredLogger) *service {
+	return &service{
 		repo: repo,
 		logger: logger.With(
 			"module", "task",
@@ -39,7 +39,7 @@ func New(repo repo.ITaskRepo, logger *zap.SugaredLogger) *TaskService {
 	}
 }
 
-func (s *TaskService) Create(ctx context.Context, task dto.TaskRequest) (models.Task, error) {
+func (s *service) Create(ctx context.Context, task dto.TaskRequest) (models.Task, error) {
 	model, err := models.NewTask(
 		task.Name,
 		task.Description,
@@ -57,7 +57,7 @@ func (s *TaskService) Create(ctx context.Context, task dto.TaskRequest) (models.
 	return s.repo.Create(ctx, model)
 }
 
-func (s *TaskService) ChangeStatus(
+func (s *service) ChangeStatus(
 	ctx context.Context,
 	id uint32,
 	status valueobjects.Status,
@@ -96,4 +96,20 @@ func (s *TaskService) ChangeStatus(
 	}
 
 	return s.repo.Update(ctx, task)
+}
+
+func (s *service) ChangeBoard(ctx context.Context, boardId uint32) (models.Board, error) {
+	return models.Board{}, nil
+}
+
+func (s *service) ChangeAssign(ctx context.Context, assignId uint32) (models.User, error) {
+	return models.User{}, nil
+}
+
+func (s *service) ChangeReporter(ctx context.Context, reporterId uint32) (models.User, error) {
+	return models.User{}, nil
+}
+
+func (s *service) ChangeSprint(ctx context.Context, sprint models.Sprint) (models.Sprint, error) {
+	return models.Sprint{}, nil
 }

@@ -7,17 +7,17 @@ import (
 	"task_tracker/internal/domain/models"
 )
 
-type ITaskRepo interface {
+type TaskRepo interface {
 	Create(ctx context.Context, task models.Task) (models.Task, error)
 	Update(ctx context.Context, task models.Task) error
 	Get(ctx context.Context, id uint32) (models.Task, error)
 }
 
-type TaskRepo struct {
+type repo struct {
 	db *sql.DB
 }
 
-func (r *TaskRepo) Create(ctx context.Context, task models.Task) (models.Task, error) {
+func (r *repo) Create(ctx context.Context, task models.Task) (models.Task, error) {
 	const query = `
 		INSERT INTO task (name, description, board_id, assignee_id, reporter_id, due_to, status)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -48,7 +48,7 @@ func (r *TaskRepo) Create(ctx context.Context, task models.Task) (models.Task, e
 	return createdTask, nil
 }
 
-func (r *TaskRepo) Get(ctx context.Context, id uint32) (models.Task, error) {
+func (r *repo) Get(ctx context.Context, id uint32) (models.Task, error) {
 	var task models.Task
 
 	query := `
@@ -76,7 +76,7 @@ func (r *TaskRepo) Get(ctx context.Context, id uint32) (models.Task, error) {
 	return task, nil
 }
 
-func (r *TaskRepo) Update(ctx context.Context, task models.Task) error {
+func (r *repo) Update(ctx context.Context, task models.Task) error {
 	query := `
 		UPDATE task
 		SET status = $1
