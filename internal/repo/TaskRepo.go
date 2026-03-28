@@ -10,7 +10,9 @@ import (
 type TaskRepo interface {
 	Create(ctx context.Context, task models.Task) (models.Task, error)
 	Update(ctx context.Context, task models.Task) error
-	Get(ctx context.Context, id uint32) (models.Task, error)
+	GetTask(ctx context.Context, id uint32) (models.Task, error)
+	GetTeam(ctx context.Context, id uint32) (models.Team, error)
+	GetActiveByTeamId(ctx context.Context, id uint32) ([]models.Task, error)
 }
 
 type repo struct {
@@ -48,7 +50,7 @@ func (r *repo) Create(ctx context.Context, task models.Task) (models.Task, error
 	return createdTask, nil
 }
 
-func (r *repo) Get(ctx context.Context, id uint32) (models.Task, error) {
+func (r *repo) GetTask(ctx context.Context, id uint32) (models.Task, error) {
 	var task models.Task
 
 	query := `
@@ -91,4 +93,68 @@ func (r *repo) Update(ctx context.Context, task models.Task) error {
 	)
 
 	return err
+}
+
+func (r *repo) GetTeam(ctx context.Context, id uint32) (models.Team, error) {
+	var team models.Team
+
+	query := `
+		SELECT *
+		FROM team
+		WHERE id = $1
+	`
+
+	err := r.db.QueryRowContext(ctx, query, id).Scan(
+		&team.ID,
+		&team.Name,
+		&team.UsersId,
+	)
+
+	if err != nil {
+		return models.Team{}, err
+	}
+
+	return team, nil
+
+}
+
+func (r *repo) GetActiveByTeamId(ctx context.Context, id uint32) ([]models.Task, error) {
+	query := `
+		SELECT id, name, description, status, board, due_to
+		FROM task
+		WHERE team_id = $1 AND status IN ($2, $3)
+		ORDER BY due_to ASC
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var tasks []models.Task
+
+	for rows.Next() {
+		var t models.Task
+
+		err := rows.Scan(
+			&t.Id,
+			&t.Name,
+			&t.Description,
+			&t.Status,
+			&t.BoardId,
+			&t.DueTo,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		tasks = append(tasks, t)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return tasks, nil
 }

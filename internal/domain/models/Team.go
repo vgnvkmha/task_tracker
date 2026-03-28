@@ -1,7 +1,7 @@
 package models
 
 type Team struct {
-	id      uint32
-	name    string
-	usersId []uint32
+	ID      uint32
+	Name    string
+	UsersId []uint32
 }
