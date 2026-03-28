@@ -2,6 +2,7 @@ package models
 
 import (
 	"errors"
+	tErr "task_tracker/internal/domain/errors"
 	valueobjects "task_tracker/internal/domain/models/value_objects"
 	"task_tracker/internal/domain/validation"
 	"time"
@@ -56,5 +57,25 @@ func (t *Task) ChangeStatus(newStatus valueobjects.Status) error {
 	}
 
 	t.Status = newStatus
+	return nil
+}
+
+func (t *Task) ChangeBoard(id uint32) error {
+	if t.Status == valueobjects.Closed {
+		return tErr.ErrTaskClosed
+	}
+	t.BoardId = id
+	return nil
+}
+
+func (t *Task) ChangeReporter(id uint32) error {
+	return nil
+}
+
+func (t *Task) ChangeAssignee(id uint32) error {
+	return nil
+}
+
+func (t *Task) ChangeSprint(id uint32) error {
 	return nil
 }
