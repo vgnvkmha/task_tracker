@@ -10,9 +10,11 @@ import (
 type TaskRepo interface {
 	Create(ctx context.Context, task models.Task) (models.Task, error)
 	Update(ctx context.Context, task models.Task) error
-	GetTask(ctx context.Context, id uint32) (models.Task, error)
-	GetTeam(ctx context.Context, id uint32) (models.Team, error)
-	GetActiveByTeamId(ctx context.Context, id uint32) ([]models.Task, error)
+	GetTask(ctx context.Context, taskId uint32) (models.Task, error)
+	GetTeam(ctx context.Context, teamId uint32) (models.Team, error)
+	GetUser(ctx context.Context, userId uint32) (models.User, error)    //TODO: make realization
+	GetBoard(ctx context.Context, boardId uint32) (models.Board, error) //TODO: make realization
+	GetActiveByTeamId(ctx context.Context, teamId uint32) ([]models.Task, error)
 }
 
 type repo struct {
