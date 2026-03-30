@@ -17,3 +17,12 @@ func (s Status) IsValid() bool {
 		return false
 	}
 }
+
+func (s Status) IsImmutable() bool {
+	switch s {
+	case InProgress, Done, Closed:
+		return true
+	default:
+		return false
+	}
+}

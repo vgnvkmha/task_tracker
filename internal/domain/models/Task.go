@@ -2,7 +2,7 @@ package models
 
 import (
 	"errors"
-	tErr "task_tracker/internal/domain/errors"
+	err "task_tracker/internal/domain/errors"
 	valueobjects "task_tracker/internal/domain/models/value_objects"
 	"task_tracker/internal/domain/validation"
 	"time"
@@ -61,21 +61,39 @@ func (t *Task) ChangeStatus(newStatus valueobjects.Status) error {
 }
 
 func (t *Task) ChangeBoard(id uint32) error {
-	if t.Status == valueobjects.Closed {
-		return tErr.ErrTaskClosed
+	if t.Status.IsImmutable() {
+		return err.AdminCanModifyOnly
 	}
 	t.BoardId = id
 	return nil
 }
 
-func (t *Task) ChangeReporter(id uint32) error {
+func (t *Task) ChangeReporter(newReporterId uint32) error {
+	if t.ReporterId == newReporterId {
+		return errors.New("Same Reporter ID")
+	}
+	if t.Status.IsImmutable() {
+		return err.AdminCanModifyOnly
+	}
+	t.ReporterId = newReporterId
 	return nil
 }
 
-func (t *Task) ChangeAssignee(id uint32) error {
+func (t *Task) ChangeAssignee(newAssigneeId uint32) error {
+	if t.AssigneeId == newAssigneeId {
+		return errors.New("Same Assignee")
+	}
+	t.AssigneeId = newAssigneeId
 	return nil
 }
 
-func (t *Task) ChangeSprint(id uint32) error {
+func (t *Task) ChangeSprint(newSprintId uint32) error {
+	if t.Sprint.ID == newSprintId {
+		return errors.New("Same Sprint")
+	}
+	if t.Status.IsImmutable() || t.Sprint.Status.IsImmutable() {
+		return err.AdminCanModifyOnly
+	}
+	t.Sprint.ID = newSprintId
 	return nil
 }
