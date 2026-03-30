@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"task_tracker/internal/domain/models"
 	valueobjects "task_tracker/internal/domain/models/value_objects" //TODO: 2 vo imports
 	"task_tracker/internal/domain/validation"
@@ -98,15 +97,8 @@ func (s *service) ChangeStatus(
 		return err
 	}
 
-	if !newStatus.IsValid() {
-		err := errors.New("Invalid Status")
-
-		s.logger.Infow("Invalid Status",
-			"operation", op,
-			"input", input,
-		)
-
-		return err
+	if !newStatus.IsValid() || newStatus.IsImmutable() {
+		return
 	}
 
 	task, err := s.repo.GetTask(ctx, id)

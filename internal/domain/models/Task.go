@@ -48,8 +48,9 @@ func NewTask(
 
 func (t *Task) ChangeStatus(newStatus valueobjects.Status) error {
 
-	if !newStatus.IsValid() {
-		return errors.New("invalid status")
+	err := newStatus.IsValid()
+	if err != nil {
+		return err
 	}
 
 	if !validation.IsValidStatusTransition(t.Status, newStatus) {
@@ -60,19 +61,22 @@ func (t *Task) ChangeStatus(newStatus valueobjects.Status) error {
 	return nil
 }
 
-func (t *Task) ChangeBoard(id uint32) error {
-	if t.Status.IsImmutable() {
+func (t *Task) ChangeBoard(newBoardId uint32) error {
+	if t.BoardId == newBoardId {
+		return errors.New("Same Board")
+	}
+	if t.Status.IsImmutable() != nil || t.Sprint.Status.IsImmutable() != nil {
 		return err.AdminCanModifyOnly
 	}
-	t.BoardId = id
+	t.BoardId = newBoardId
 	return nil
 }
 
 func (t *Task) ChangeReporter(newReporterId uint32) error {
 	if t.ReporterId == newReporterId {
-		return errors.New("Same Reporter ID")
+		return errors.New("Same Reporter")
 	}
-	if t.Status.IsImmutable() {
+	if t.Status.IsImmutable() != nil {
 		return err.AdminCanModifyOnly
 	}
 	t.ReporterId = newReporterId
@@ -83,6 +87,9 @@ func (t *Task) ChangeAssignee(newAssigneeId uint32) error {
 	if t.AssigneeId == newAssigneeId {
 		return errors.New("Same Assignee")
 	}
+	if t.Status.IsImmutable() != nil {
+		return err.AdminCanModifyOnly
+	}
 	t.AssigneeId = newAssigneeId
 	return nil
 }
@@ -91,7 +98,7 @@ func (t *Task) ChangeSprint(newSprintId uint32) error {
 	if t.Sprint.ID == newSprintId {
 		return errors.New("Same Sprint")
 	}
-	if t.Status.IsImmutable() || t.Sprint.Status.IsImmutable() {
+	if t.Status.IsImmutable() != nil || t.Sprint.Status.IsImmutable() != nil {
 		return err.AdminCanModifyOnly
 	}
 	t.Sprint.ID = newSprintId

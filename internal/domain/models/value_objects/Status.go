@@ -1,5 +1,7 @@
 package valueobjects
 
+import err "task_tracker/internal/domain/errors"
+
 type Status string
 
 const (
@@ -9,20 +11,20 @@ const (
 	Closed     Status = "closed"
 )
 
-func (s Status) IsValid() bool {
+func (s Status) IsValid() error {
 	switch s {
 	case Todo, InProgress, Done, Closed:
-		return true
+		return err.InvalidStatus
 	default:
-		return false
+		return nil
 	}
 }
 
-func (s Status) IsImmutable() bool {
+func (s Status) IsImmutable() error {
 	switch s {
 	case InProgress, Done, Closed:
-		return true
+		return err.AdminCanModifyOnly
 	default:
-		return false
+		return nil
 	}
 }

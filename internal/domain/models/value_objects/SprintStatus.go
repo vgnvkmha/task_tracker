@@ -1,5 +1,7 @@
 package valueobjects
 
+import err "task_tracker/internal/domain/errors"
+
 type SprintStatus string
 
 const (
@@ -10,11 +12,11 @@ const (
 	SprintCancelled SprintStatus = "cancelled"
 )
 
-func (s SprintStatus) IsImmutable() bool {
+func (s SprintStatus) IsImmutable() error {
 	switch s {
 	case SprintCompleted, SprintCancelled:
-		return true
+		return err.AdminCanModifyOnly
 	default:
-		return false
+		return nil
 	}
 }

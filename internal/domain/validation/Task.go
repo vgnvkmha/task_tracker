@@ -1,9 +1,11 @@
 package validation
 
-import vo "task_tracker/internal/domain/models/value_objects"
+import (
+	vo "task_tracker/internal/domain/models/value_objects"
+)
 
 func IsValidStatusTransition(from, to vo.Status) bool {
-	if !from.IsValid() || !to.IsValid() {
+	if err1, err2 := from.IsValid(), to.IsValid(); err1 != nil || err2 != nil {
 		return false
 	}
 
