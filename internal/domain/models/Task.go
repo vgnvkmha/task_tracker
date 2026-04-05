@@ -16,11 +16,12 @@ type Task struct {
 	Name        string
 	Description string
 	Status      valueobjects.Status
-	BoardId     uuid.UUID
 	CreatedAt   time.Time
 	DueTo       time.Time
-	AssigneeId  *uuid.UUID
+	UpdatedAt   time.Time
 	ReporterId  uuid.UUID
+	AssigneeId  *uuid.UUID
+	BoardId     uuid.UUID
 	SprintId    *uuid.UUID
 }
 

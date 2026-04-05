@@ -8,11 +8,11 @@ import (
 )
 
 type Sprint struct {
-	ID        uuid.UUID
+	Id        uuid.UUID
 	Name      string
 	StartDate time.Time
 	EndDate   time.Time
 	Status    valueobjects.SprintStatus
-	BoardID   uuid.UUID
+	BoardId   uuid.UUID
 	TasksIds  uuid.UUID
 }

@@ -63,7 +63,6 @@ func (s *service) Create(ctx context.Context, userId uuid.UUID, task dto.TaskReq
 		return models.Task{}, logError(errors_task.ErrInvalidRights, s.logger, loggingFields...)
 	}
 
-	//TODO: add validation in task package
 	id := uuid.New()
 	model, err := models.NewTask(
 		id,
