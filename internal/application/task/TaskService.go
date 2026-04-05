@@ -6,8 +6,8 @@ import (
 	"task_tracker/internal/domain/models"
 	vo "task_tracker/internal/domain/models/value_objects"
 	"task_tracker/internal/domain/validation"
+	dto "task_tracker/internal/handler/task/dto"
 	"task_tracker/internal/repo"
-	dto "task_tracker/internal/transport/task"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"

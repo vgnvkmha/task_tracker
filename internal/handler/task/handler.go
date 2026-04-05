@@ -3,15 +3,16 @@ package task_handler
 import (
 	"strconv"
 	task_service "task_tracker/internal/application/task"
-	dto "task_tracker/internal/transport/task"
+	dto "task_tracker/internal/handler/task/dto"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type TaskHandler interface {
 	Create(ctx *gin.Context)
 
-	ListActive(ctx *gin.Context)
+	ListActiveByTeam(ctx *gin.Context)
 
 	ChangeStatus(ctx *gin.Context)
 	ChangeBoard(ctx *gin.Context)
@@ -32,10 +33,13 @@ func New(service task_service.TaskService) handler { //TODO: must return interfa
 
 func (h *handler) Create(ctx *gin.Context) {
 	var params dto.TaskRequest
-	userId, err := strconv.ParseUint(ctx.Param("id"), 10, 32)
+	strId := ctx.Param("id")
+	userId, err := uuid.Parse(strId)
 	if err != nil {
-		ctx.JSON(400, gin.H{"invalid_id": userId, "error": err})
-		return
+		ctx.JSON(400, gin.H{
+			"invalid_user_id": strId,
+			"error":           err,
+		})
 	}
 	if err := ctx.ShouldBindJSON(&params); err != nil {
 		ctx.JSON(400, gin.H{
@@ -44,31 +48,34 @@ func (h *handler) Create(ctx *gin.Context) {
 		return
 	}
 
-	task, err := h.service.Create(ctx.Request.Context(), uint32(userId), params)
+	task, err := h.service.Create(ctx.Request.Context(), uuid.UUID(userId), params)
 	if err != nil {
 		ctx.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
 
+	response := dto.ToTaskResponse(task)
 	ctx.JSON(201, gin.H{
-		"created_task": task,
+		"created_task": response,
 	})
 }
 
-func (h *handler) ListActive(ctx *gin.Context) {
+func (h *handler) ListActiveByTeam(ctx *gin.Context) {
 	idStr := ctx.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 32)
+	userId, err := uuid.Parse(idStr)
 	if err != nil {
 		ctx.JSON(400, gin.H{"error": "invalid id"})
 		return
 	}
-	tasks, err := h.service.GetActiveTasksByTeam(ctx.Request.Context(), uint32(id))
+	tasks, err := h.service.GetActiveTasksByTeam(ctx.Request.Context(), userId)
 	if err != nil {
 		ctx.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
+
+	results := dto.ToTaskResponses(tasks)
 	ctx.JSON(201, gin.H{
-		"active_tasks": tasks,
+		"active_tasks": results,
 	})
 }
 
