@@ -15,7 +15,7 @@ const (
 func (s SprintStatus) IsImmutable() error {
 	switch s {
 	case SprintCompleted, SprintCancelled:
-		return err.AdminCanModifyOnly
+		return err.ErrInvalidRights
 	default:
 		return nil
 	}
