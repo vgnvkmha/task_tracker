@@ -1,12 +1,17 @@
 package dto
 
-import "time"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 type TaskRequest struct {
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	BoardID     uint32    `json:"board_id"`
-	AssigneeID  uint32    `json:"assignee_id"`
-	ReporetID   uint32    `json:"reporter_id"`
-	DueTo       time.Time `json:"due_to"`
+	Name        string     `json:"name"`
+	Description string     `json:"description"`
+	BoardID     uuid.UUID  `json:"board_id"`
+	DueTo       time.Time  `json:"due_to"`
+	AssigneeID  *uuid.UUID `json:"assignee_id"`
+	ReporetID   uuid.UUID  `json:"reporter_id"`
+	SprintId    *uuid.UUID `json:"sprint_id"`
 }

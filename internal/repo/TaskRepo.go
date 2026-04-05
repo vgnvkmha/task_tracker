@@ -5,18 +5,23 @@ import (
 	"database/sql"
 	"fmt"
 	"task_tracker/internal/domain/models"
+
+	"github.com/google/uuid"
 )
 
 type TaskRepo interface {
 	Create(ctx context.Context, task models.Task) (models.Task, error)
 	Update(ctx context.Context, task models.Task) error
-	GetTask(ctx context.Context, taskId uint32) (models.Task, error)
-	GetTeam(ctx context.Context, teamId uint32) (models.Team, error)
-	GetUser(ctx context.Context, userId uint32) (models.User, error)    //TODO: make realization
-	GetBoard(ctx context.Context, boardId uint32) (models.Board, error) //TODO: make realization
-	GetActiveByTeamId(ctx context.Context, teamId uint32) ([]models.Task, error)
+
+	GetTask(ctx context.Context, taskId uuid.UUID) (models.Task, error)
+	GetTeam(ctx context.Context, teamId uuid.UUID) (models.Team, error)
+	GetUser(ctx context.Context, userId uuid.UUID) (models.User, error)       //TODO: make realization
+	GetBoard(ctx context.Context, boardId uuid.UUID) (models.Board, error)    //TODO: make realization
+	GetSprint(ctx context.Context, sprintId uuid.UUID) (models.Sprint, error) // TODO: make realization
+	GetActiveByTeamId(ctx context.Context, teamId uuid.UUID) ([]models.Task, error)
 }
 
+// TODO: make struct implement interface
 type repo struct {
 	db *sql.DB
 }
@@ -52,7 +57,7 @@ func (r *repo) Create(ctx context.Context, task models.Task) (models.Task, error
 	return createdTask, nil
 }
 
-func (r *repo) GetTask(ctx context.Context, id uint32) (models.Task, error) {
+func (r *repo) GetTask(ctx context.Context, id uuid.UUID) (models.Task, error) {
 	var task models.Task
 
 	query := `
@@ -97,7 +102,7 @@ func (r *repo) Update(ctx context.Context, task models.Task) error {
 	return err
 }
 
-func (r *repo) GetTeam(ctx context.Context, id uint32) (models.Team, error) {
+func (r *repo) GetTeam(ctx context.Context, id uuid.UUID) (models.Team, error) {
 	var team models.Team
 
 	query := `
@@ -120,7 +125,7 @@ func (r *repo) GetTeam(ctx context.Context, id uint32) (models.Team, error) {
 
 }
 
-func (r *repo) GetActiveByTeamId(ctx context.Context, id uint32) ([]models.Task, error) {
+func (r *repo) GetActiveByTeamId(ctx context.Context, id uuid.UUID) ([]models.Task, error) {
 	query := `
 		SELECT id, name, description, status, board, due_to
 		FROM task

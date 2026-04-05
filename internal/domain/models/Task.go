@@ -1,80 +1,98 @@
 package models
 
 import (
-	"errors"
+	"strings"
 	err "task_tracker/internal/domain/errors"
+	task_errors "task_tracker/internal/domain/errors"
 	valueobjects "task_tracker/internal/domain/models/value_objects"
 	"task_tracker/internal/domain/validation"
 	"time"
+
+	uuid "github.com/google/uuid"
 )
 
 type Task struct {
-	Id          uint32
+	Id          uuid.UUID
 	Name        string
 	Description string
 	Status      valueobjects.Status
-	BoardId     uint32
+	BoardId     uuid.UUID
 	CreatedAt   time.Time
 	DueTo       time.Time
-	AssigneeId  uint32
-	ReporterId  uint32
-	Sprint      Sprint
+	AssigneeId  *uuid.UUID
+	ReporterId  uuid.UUID
+	SprintId    *uuid.UUID
 }
 
 func NewTask(
+	id uuid.UUID,
 	name string,
 	description string,
-	boardId uint32,
-	assigneeId uint32,
-	reporterId uint32,
+	boardID uuid.UUID,
 	dueTo time.Time,
+	assigneeID *uuid.UUID,
+	reporterID uuid.UUID,
+	sprintId *uuid.UUID,
 ) (Task, error) {
 
-	if name == "" {
-		return Task{}, errors.New("name is required")
+	if strings.TrimSpace(name) == "" {
+		return Task{}, task_errors.ErrTaskName
+	}
+	if boardID == uuid.Nil {
+		return Task{}, task_errors.ErrTaskBoard
+	}
+	if reporterID == uuid.Nil {
+		return Task{}, task_errors.ErrTaskUser
 	}
 
-	return Task{
+	if time.Now().After(dueTo) {
+		return Task{}, task_errors.ErrInvalidTime
+	}
+
+	task := Task{
+		Id:          id,
 		Name:        name,
 		Description: description,
-		Status:      valueobjects.InProgress,
-		BoardId:     boardId,
+		Status:      valueobjects.Todo,
+		BoardId:     boardID,
 		CreatedAt:   time.Now(),
 		DueTo:       dueTo,
-		AssigneeId:  assigneeId,
-		ReporterId:  reporterId,
-	}, nil
+		AssigneeId:  assigneeID,
+		ReporterId:  reporterID,
+		SprintId:    sprintId,
+	}
+
+	return task, nil
 }
 
 func (t *Task) ChangeStatus(newStatus valueobjects.Status) error {
-
 	err := newStatus.IsValid()
 	if err != nil {
 		return err
 	}
 
-	if !validation.IsValidStatusTransition(t.Status, newStatus) {
-		return errors.New("invalid status transition")
+	if err = validation.IsValidStatusTransition(t.Status, newStatus); err != nil {
+		return err
 	}
 
 	t.Status = newStatus
 	return nil
 }
 
-func (t *Task) ChangeBoard(newBoardId uint32) error {
+func (t *Task) ChangeBoard(newBoardId uuid.UUID) error {
 	if t.BoardId == newBoardId {
-		return errors.New("Same Board")
+		return err.ErrSameChange
 	}
-	if t.Status.IsImmutable() != nil || t.Sprint.Status.IsImmutable() != nil {
+	if t.Status.IsImmutable() != nil {
 		return err.ErrInvalidStatus
 	}
 	t.BoardId = newBoardId
 	return nil
 }
 
-func (t *Task) ChangeReporter(newReporterId uint32) error {
+func (t *Task) ChangeReporter(newReporterId uuid.UUID) error {
 	if t.ReporterId == newReporterId {
-		return errors.New("Same Reporter")
+		return err.ErrSameChange
 	}
 	if t.Status.IsImmutable() != nil {
 		return err.ErrInvalidRights
@@ -83,9 +101,9 @@ func (t *Task) ChangeReporter(newReporterId uint32) error {
 	return nil
 }
 
-func (t *Task) ChangeAssignee(newAssigneeId uint32) error {
+func (t *Task) ChangeAssignee(newAssigneeId *uuid.UUID) error {
 	if t.AssigneeId == newAssigneeId {
-		return errors.New("Same Assignee")
+		return err.ErrSameChange
 	}
 	if t.Status.IsImmutable() != nil {
 		return err.ErrInvalidRights
@@ -94,13 +112,14 @@ func (t *Task) ChangeAssignee(newAssigneeId uint32) error {
 	return nil
 }
 
-func (t *Task) ChangeSprint(newSprintId uint32) error {
-	if t.Sprint.ID == newSprintId {
-		return errors.New("Same Sprint")
+func (t *Task) ChangeSprint(newSprintId *uuid.UUID) error {
+	if t.SprintId != nil && newSprintId != nil && *t.SprintId == *newSprintId {
+		return err.ErrSameChange
 	}
-	if t.Status.IsImmutable() != nil || t.Sprint.Status.IsImmutable() != nil {
-		return err.ErrInvalidRights
+	if t.Status.IsImmutable() != nil {
+		return err.ErrImmutableTask
 	}
-	t.Sprint.ID = newSprintId
+
+	t.SprintId = newSprintId
 	return nil
 }
