@@ -2,7 +2,7 @@ package task_handler
 
 import (
 	"strconv"
-	"task_tracker/internal/domain/service"
+	task_service "task_tracker/internal/application/task"
 	dto "task_tracker/internal/transport/task"
 
 	"github.com/gin-gonic/gin"
@@ -21,10 +21,10 @@ type TaskHandler interface {
 }
 
 type handler struct {
-	service service.TaskService
+	service task_service.TaskService
 }
 
-func New(service service.TaskService) handler { //TODO: must return interface
+func New(service task_service.TaskService) handler { //TODO: must return interface
 	return handler{
 		service: service,
 	}
@@ -32,7 +32,11 @@ func New(service service.TaskService) handler { //TODO: must return interface
 
 func (h *handler) Create(ctx *gin.Context) {
 	var params dto.TaskRequest
-
+	userId, err := strconv.ParseUint(ctx.Param("id"), 10, 32)
+	if err != nil {
+		ctx.JSON(400, gin.H{"invalid_id": userId, "error": err})
+		return
+	}
 	if err := ctx.ShouldBindJSON(&params); err != nil {
 		ctx.JSON(400, gin.H{
 			"error": err.Error(),
@@ -40,7 +44,7 @@ func (h *handler) Create(ctx *gin.Context) {
 		return
 	}
 
-	task, err := h.service.Create(ctx.Request.Context(), params)
+	task, err := h.service.Create(ctx.Request.Context(), uint32(userId), params)
 	if err != nil {
 		ctx.JSON(400, gin.H{"error": err.Error()})
 		return
@@ -70,15 +74,19 @@ func (h *handler) ListActive(ctx *gin.Context) {
 
 func (h *handler) ChangeStatus(ctx *gin.Context) {
 	input := ctx.Param("status")
-	idStr := ctx.Param("id")
-
-	id, err := strconv.ParseUint(idStr, 10, 32)
+	// roleStr := ctx.Param("role")
+	userId, err := strconv.ParseUint(ctx.Param("user_id"), 10, 32)
 	if err != nil {
-		ctx.JSON(400, gin.H{"error": "invalid id"})
+		ctx.JSON(400, gin.H{"invalid_user_id": userId, "error": err})
+		return
+	}
+	taskId, err := strconv.ParseUint(ctx.Param("task_id"), 10, 32)
+	if err != nil {
+		ctx.JSON(400, gin.H{"invalid__task_id": taskId, "error": err})
 		return
 	}
 
-	status, err := h.service.ChangeStatus(ctx.Request.Context(), uint32(id), input)
+	status, err := h.service.ChangeStatus(ctx.Request.Context(), uint32(userId), uint32(taskId), input)
 	if err != nil {
 		ctx.JSON(400, gin.H{
 			"error": err,
@@ -86,7 +94,8 @@ func (h *handler) ChangeStatus(ctx *gin.Context) {
 		return
 	}
 	ctx.JSON(201, gin.H{
-		"task_id":    id,
+		"task_id":    taskId,
+		"user_id":    userId,
 		"new_status": status,
 	})
 }

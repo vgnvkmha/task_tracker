@@ -1,7 +1,7 @@
 package models
 
 type User struct {
-	id     uint32
-	teamId uint32
-	data   PersonalData
+	Id     uint32
+	TeamId uint32
+	Data   PersonalData
 }

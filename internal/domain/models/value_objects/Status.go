@@ -14,7 +14,7 @@ const (
 func (s Status) IsValid() error {
 	switch s {
 	case Todo, InProgress, Done, Closed:
-		return err.InvalidStatus
+		return err.ErrInvalidStatus
 	default:
 		return nil
 	}
@@ -23,7 +23,7 @@ func (s Status) IsValid() error {
 func (s Status) IsImmutable() error {
 	switch s {
 	case InProgress, Done, Closed:
-		return err.AdminCanModifyOnly
+		return err.ErrImmutableTask
 	default:
 		return nil
 	}

@@ -66,7 +66,7 @@ func (t *Task) ChangeBoard(newBoardId uint32) error {
 		return errors.New("Same Board")
 	}
 	if t.Status.IsImmutable() != nil || t.Sprint.Status.IsImmutable() != nil {
-		return err.AdminCanModifyOnly
+		return err.ErrInvalidStatus
 	}
 	t.BoardId = newBoardId
 	return nil
@@ -77,7 +77,7 @@ func (t *Task) ChangeReporter(newReporterId uint32) error {
 		return errors.New("Same Reporter")
 	}
 	if t.Status.IsImmutable() != nil {
-		return err.AdminCanModifyOnly
+		return err.ErrInvalidRights
 	}
 	t.ReporterId = newReporterId
 	return nil
@@ -88,7 +88,7 @@ func (t *Task) ChangeAssignee(newAssigneeId uint32) error {
 		return errors.New("Same Assignee")
 	}
 	if t.Status.IsImmutable() != nil {
-		return err.AdminCanModifyOnly
+		return err.ErrInvalidRights
 	}
 	t.AssigneeId = newAssigneeId
 	return nil
@@ -99,7 +99,7 @@ func (t *Task) ChangeSprint(newSprintId uint32) error {
 		return errors.New("Same Sprint")
 	}
 	if t.Status.IsImmutable() != nil || t.Sprint.Status.IsImmutable() != nil {
-		return err.AdminCanModifyOnly
+		return err.ErrInvalidRights
 	}
 	t.Sprint.ID = newSprintId
 	return nil
