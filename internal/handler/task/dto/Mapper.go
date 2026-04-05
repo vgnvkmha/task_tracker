@@ -10,6 +10,7 @@ func ToTaskResponse(t models.Task) TaskResponse {
 		Status:      string(t.Status),
 		CreatedAt:   t.CreatedAt.String(),
 		DueTo:       t.DueTo.String(),
+		UpdatedAt:   t.UpdatedAt.String(),
 		ReporterId:  t.ReporterId.String(),
 		AssigneeId:  t.AssigneeId.String(),
 		BoardId:     t.BoardId.String(),

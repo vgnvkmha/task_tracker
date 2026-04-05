@@ -93,7 +93,7 @@ func (h *handler) ChangeStatus(ctx *gin.Context) {
 		return
 	}
 
-	status, err := h.service.ChangeStatus(ctx.Request.Context(), uint32(userId), uint32(taskId), input)
+	status, err := h.service.ChangeStatus(ctx.Request.Context(), userId, taskId, input)
 	if err != nil {
 		ctx.JSON(400, gin.H{
 			"error": err,

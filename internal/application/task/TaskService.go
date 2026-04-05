@@ -24,7 +24,7 @@ type TaskService interface {
 	GetActiveTasksByTeam(ctx context.Context, id uuid.UUID) ([]models.Task, error)
 	GetTeamById(ctx context.Context, id uuid.UUID) (models.Team, error)
 
-	ChangeStatus(ctx context.Context, userId, taskId uint32, newStatus string) (vo.Status, error)
+	ChangeStatus(ctx context.Context, userId, taskId uuid.UUID, newStatus string) (vo.Status, error)
 	ChangeBoard(ctx context.Context, userId, taskId, newBoardId uuid.UUID) (models.Board, error)
 	ChangeAssign(ctx context.Context, userId, taskId, newAssignId uuid.UUID) (models.User, error)
 	ChangeReporter(ctx context.Context, userId, taskId, newreporterId uuid.UUID) (models.User, error)
@@ -36,7 +36,7 @@ type service struct {
 	logger *zap.SugaredLogger
 }
 
-func New(repo repo.TaskRepo, logger *zap.SugaredLogger) *service {
+func New(repo repo.TaskRepo, logger *zap.SugaredLogger) TaskService {
 	return &service{
 		repo: repo,
 		logger: logger.With(
@@ -117,71 +117,66 @@ func (s *service) GetTeamById(ctx context.Context, teamId uuid.UUID) (models.Tea
 	return team, nil
 }
 
-func (s *service) ChangeStatus(
-	ctx context.Context,
-	userId,
-	taskId uuid.UUID,
-	inputStatus string,
-) error {
+func (s *service) ChangeStatus(ctx context.Context, userId, taskId uuid.UUID, newStatus string) (vo.Status, error) {
 	const op = "Change Status"
 
 	loggingFields := []any{
 		"operation", op,
 		"user_id", userId,
 		"task_id", taskId,
-		"user_role", "undefined",
-		"new_status", inputStatus,
+		"user_role", "undefined", //TODO: make role recievement
+		"new_status", newStatus,
 	}
-	newStatus, err := validation.ParseStatus(inputStatus)
+	newStatusVo, err := validation.ParseStatus(newStatus)
 	if err != nil {
-		return logError(err, s.logger, loggingFields...)
+		return newStatusVo, logError(err, s.logger, loggingFields...)
 	}
 
 	user, err := s.repo.GetUser(ctx, userId)
 	if err != nil {
-		return logError(err, s.logger, loggingFields...)
+		return newStatusVo, logError(err, s.logger, loggingFields...)
 	}
 	role, err := user.Data.Role.IsValid()
 
 	//changing role for logging as soon as we get it
 	loggingFields[7] = role
 	if err != nil {
-		return logError(err, s.logger, loggingFields...)
+		return newStatusVo, logError(err, s.logger, loggingFields...)
 	}
 
-	if !role.CanModifyTaskInRestrictedState() || newStatus.IsValid() != nil || newStatus.IsImmutable() != nil {
-		return logError(err, s.logger, loggingFields...)
+	if !role.CanModifyTaskInRestrictedState() || newStatusVo.IsValid() != nil || newStatusVo.IsImmutable() != nil {
+		return newStatusVo, logError(err, s.logger, loggingFields...)
 	}
 
 	task, err := s.repo.GetTask(ctx, taskId)
 	if err != nil {
-		return logError(err, s.logger, loggingFields...)
+		return newStatusVo, logError(err, s.logger, loggingFields...)
 	}
 
-	err = task.ChangeStatus(newStatus)
+	err = task.ChangeStatus(newStatusVo)
 	if err != nil {
-		return logError(err, s.logger, loggingFields...)
+		return newStatusVo, logError(err, s.logger, loggingFields...)
 	}
 
 	if err = s.repo.Update(ctx, task); err != nil {
-		return logError(err, s.logger, loggingFields...)
+		return newStatusVo, logError(err, s.logger, loggingFields...)
 	}
 
 	logSuccess(s.logger, loggingFields...)
-	return nil
+	return newStatusVo, nil
 }
 
-func (s *service) ChangeBoard(ctx context.Context, taskId, boardId uuid.UUID) (models.Board, error) {
+func (s *service) ChangeBoard(ctx context.Context, userId, taskId, newBoardId uuid.UUID) (models.Board, error) {
 	const op = "Change Task Board"
 
 	loggingFields := []any{
 		"operation", op,
-		"board_id", boardId,
+		"board_id", newBoardId,
 		"task_id", taskId,
 		"user_role", "undefined",
 	}
 
-	board, err := s.repo.GetBoard(ctx, boardId)
+	board, err := s.repo.GetBoard(ctx, newBoardId)
 	if err != nil {
 		return models.Board{}, logError(err, s.logger, loggingFields...)
 	}
@@ -191,7 +186,7 @@ func (s *service) ChangeBoard(ctx context.Context, taskId, boardId uuid.UUID) (m
 		return models.Board{}, logError(err, s.logger, loggingFields...)
 	}
 
-	if err := task.ChangeBoard(boardId); err != nil {
+	if err := task.ChangeBoard(newBoardId); err != nil {
 		return models.Board{}, logError(err, s.logger, loggingFields...)
 	}
 
@@ -199,12 +194,12 @@ func (s *service) ChangeBoard(ctx context.Context, taskId, boardId uuid.UUID) (m
 	return board, nil
 }
 
-func (s *service) ChangeAssign(ctx context.Context, taskId, assignId uuid.UUID) (models.User, error) {
+func (s *service) ChangeAssign(ctx context.Context, userId, taskId, newAssignId uuid.UUID) (models.User, error) {
 	const op = "Change Task Assignee"
 
 	loggingFields := []any{
 		"operation", op,
-		"assign_id", assignId,
+		"assign_id", newAssignId,
 		"task_id", taskId,
 		"user_role", "undefined",
 	}
@@ -214,12 +209,12 @@ func (s *service) ChangeAssign(ctx context.Context, taskId, assignId uuid.UUID) 
 		return models.User{}, logError(err, s.logger, loggingFields...)
 	}
 
-	assignee, err := s.repo.GetUser(ctx, assignId)
+	assignee, err := s.repo.GetUser(ctx, newAssignId)
 	if err != nil {
 		return models.User{}, logError(err, s.logger, loggingFields...)
 	}
 
-	err = task.ChangeAssignee(&assignId)
+	err = task.ChangeAssignee(&newAssignId)
 	if err != nil {
 		return models.User{}, logError(err, s.logger, loggingFields...)
 	}
@@ -228,12 +223,12 @@ func (s *service) ChangeAssign(ctx context.Context, taskId, assignId uuid.UUID) 
 	return assignee, nil
 }
 
-func (s *service) ChangeReporter(ctx context.Context, taskId, reporterId uuid.UUID) (models.User, error) {
+func (s *service) ChangeReporter(ctx context.Context, userId, taskId, newreporterId uuid.UUID) (models.User, error) {
 	const op = "Change Task Reporter"
 
 	loggingFields := []any{
 		"operation", op,
-		"reporter_id", reporterId,
+		"reporter_id", newreporterId,
 		"task_id", taskId,
 		"user_role", "undefined",
 	}
@@ -243,12 +238,12 @@ func (s *service) ChangeReporter(ctx context.Context, taskId, reporterId uuid.UU
 		return models.User{}, logError(err, s.logger, loggingFields...)
 	}
 
-	reporter, err := s.repo.GetUser(ctx, reporterId)
+	reporter, err := s.repo.GetUser(ctx, newreporterId)
 	if err != nil {
 		return models.User{}, logError(err, s.logger, loggingFields...)
 	}
 
-	err = task.ChangeReporter(reporterId)
+	err = task.ChangeReporter(newreporterId)
 	if err != nil {
 		return models.User{}, logError(err, s.logger, loggingFields...)
 	}

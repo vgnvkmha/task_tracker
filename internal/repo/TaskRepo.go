@@ -22,9 +22,14 @@ type TaskRepo interface {
 	GetActiveByTeamId(ctx context.Context, teamId uuid.UUID) ([]models.Task, error)
 }
 
-// TODO: make struct implement interface
 type repo struct {
 	db *sql.DB
+}
+
+func New(db *sql.DB) TaskRepo {
+	return &repo{
+		db: db,
+	}
 }
 
 func (r *repo) Create(ctx context.Context, task models.Task) (models.Task, error) {

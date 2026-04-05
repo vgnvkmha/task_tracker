@@ -7,6 +7,7 @@ type TaskResponse struct {
 	Status      string `json:"status"`
 	CreatedAt   string `json:"created_at"`
 	DueTo       string `json:"due_to"`
+	UpdatedAt   string `json:"updated_at"`
 	ReporterId  string `json:"reporter_id"`
 	AssigneeId  string `json:"assignee_id"`
 	BoardId     string `json:"board_id"`
