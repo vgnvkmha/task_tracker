@@ -14,4 +14,6 @@ type TaskRequest struct {
 	AssigneeID  *uuid.UUID `json:"assignee_id"`
 	ReporetID   uuid.UUID  `json:"reporter_id"`
 	SprintId    *uuid.UUID `json:"sprint_id"`
+	UserId      uuid.UUID  `json:"user_id"`   //TODO: remove after JWT adding
+	UserRole    string     `json:"user_role"` //TODO: remove after JWT adding
 }

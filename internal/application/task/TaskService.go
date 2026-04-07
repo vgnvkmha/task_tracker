@@ -2,6 +2,7 @@ package task_service
 
 import (
 	"context"
+	"task_tracker/internal/domain/auth"
 	errors_task "task_tracker/internal/domain/errors"
 	"task_tracker/internal/domain/models"
 	vo "task_tracker/internal/domain/models/value_objects"
@@ -19,16 +20,16 @@ const (
 )
 
 type TaskService interface {
-	Create(ctx context.Context, userId uuid.UUID, task dto.TaskRequest) (models.Task, error)
+	Create(ctx context.Context, actor auth.Actor, task dto.TaskRequest) (models.Task, error)
 
-	GetActiveTasksByTeam(ctx context.Context, id uuid.UUID) ([]models.Task, error)
-	GetTeamById(ctx context.Context, id uuid.UUID) (models.Team, error)
+	GetActiveTasksByTeam(ctx context.Context, teamId uuid.UUID) ([]models.Task, error)
+	GetTeamById(ctx context.Context, teamId uuid.UUID) (models.Team, error)
 
-	ChangeStatus(ctx context.Context, userId, taskId uuid.UUID, newStatus string) (vo.Status, error)
-	ChangeBoard(ctx context.Context, userId, taskId, newBoardId uuid.UUID) (models.Board, error)
-	ChangeAssign(ctx context.Context, userId, taskId, newAssignId uuid.UUID) (models.User, error)
-	ChangeReporter(ctx context.Context, userId, taskId, newreporterId uuid.UUID) (models.User, error)
-	ChangeSprint(ctx context.Context, userId, taskId, newSprintId uuid.UUID) (models.Sprint, error)
+	ChangeStatus(ctx context.Context, actor auth.Actor, taskId uuid.UUID, newStatus string) (vo.Status, error)
+	ChangeBoard(ctx context.Context, actor auth.Actor, taskId, newBoardId uuid.UUID) (models.Board, error)
+	ChangeAssign(ctx context.Context, actor auth.Actor, taskId, newAssignId uuid.UUID) (models.User, error)
+	ChangeReporter(ctx context.Context, actor auth.Actor, taskId, newreporterId uuid.UUID) (models.User, error)
+	ChangeSprint(ctx context.Context, actor auth.Actor, taskId, newSprintId uuid.UUID) (models.Sprint, error)
 }
 
 type service struct {
@@ -46,16 +47,16 @@ func New(repo repo.TaskRepo, logger *zap.SugaredLogger) TaskService {
 	}
 }
 
-func (s *service) Create(ctx context.Context, userId uuid.UUID, task dto.TaskRequest) (models.Task, error) {
+func (s *service) Create(ctx context.Context, actor auth.Actor, task dto.TaskRequest) (models.Task, error) {
 	const op = "Create Task"
 
 	loggingFields := []any{
 		"operation", op,
-		"user_id", userId,
-		"user_role", "undefined",
+		"user_id", actor.Id,
+		"user_role", actor.Role,
 	}
 
-	user, err := s.repo.GetUser(ctx, userId)
+	user, err := s.repo.GetUser(ctx, actor.Id)
 	if err != nil {
 		return models.Task{}, logError(err, s.logger, loggingFields...)
 	}
@@ -117,14 +118,14 @@ func (s *service) GetTeamById(ctx context.Context, teamId uuid.UUID) (models.Tea
 	return team, nil
 }
 
-func (s *service) ChangeStatus(ctx context.Context, userId, taskId uuid.UUID, newStatus string) (vo.Status, error) {
+func (s *service) ChangeStatus(ctx context.Context, actor auth.Actor, taskId uuid.UUID, newStatus string) (vo.Status, error) {
 	const op = "Change Status"
 
 	loggingFields := []any{
 		"operation", op,
-		"user_id", userId,
+		"user_id", actor.Id,
+		"user_role", actor.Role,
 		"task_id", taskId,
-		"user_role", "undefined", //TODO: make role recievement
 		"new_status", newStatus,
 	}
 	newStatusVo, err := validation.ParseStatus(newStatus)
@@ -132,13 +133,12 @@ func (s *service) ChangeStatus(ctx context.Context, userId, taskId uuid.UUID, ne
 		return newStatusVo, logError(err, s.logger, loggingFields...)
 	}
 
-	user, err := s.repo.GetUser(ctx, userId)
+	user, err := s.repo.GetUser(ctx, actor.Id)
 	if err != nil {
 		return newStatusVo, logError(err, s.logger, loggingFields...)
 	}
 	role, err := user.Data.Role.IsValid()
 
-	//changing role for logging as soon as we get it
 	loggingFields[7] = role
 	if err != nil {
 		return newStatusVo, logError(err, s.logger, loggingFields...)
@@ -166,16 +166,31 @@ func (s *service) ChangeStatus(ctx context.Context, userId, taskId uuid.UUID, ne
 	return newStatusVo, nil
 }
 
-func (s *service) ChangeBoard(ctx context.Context, userId, taskId, newBoardId uuid.UUID) (models.Board, error) {
+func (s *service) ChangeBoard(ctx context.Context, actor auth.Actor, taskId, newBoardId uuid.UUID) (models.Board, error) {
 	const op = "Change Task Board"
 
 	loggingFields := []any{
 		"operation", op,
+		"user_id", actor.Id,
+		"user_role", actor.Role,
 		"board_id", newBoardId,
 		"task_id", taskId,
-		"user_role", "undefined",
 	}
 
+	user, err := s.repo.GetUser(ctx, actor.Id)
+	if err != nil {
+		return models.Board{}, logError(err, s.logger, loggingFields...)
+	}
+	role, err := user.Data.Role.IsValid()
+
+	loggingFields[7] = role
+	if err != nil {
+		return models.Board{}, logError(err, s.logger, loggingFields...)
+	}
+
+	if !role.CanModifyTaskInRestrictedState() {
+		return models.Board{}, logError(err, s.logger, loggingFields...)
+	}
 	board, err := s.repo.GetBoard(ctx, newBoardId)
 	if err != nil {
 		return models.Board{}, logError(err, s.logger, loggingFields...)
@@ -194,7 +209,7 @@ func (s *service) ChangeBoard(ctx context.Context, userId, taskId, newBoardId uu
 	return board, nil
 }
 
-func (s *service) ChangeAssign(ctx context.Context, userId, taskId, newAssignId uuid.UUID) (models.User, error) {
+func (s *service) ChangeAssign(ctx context.Context, actor auth.Actor, taskId, newAssignId uuid.UUID) (models.User, error) {
 	const op = "Change Task Assignee"
 
 	loggingFields := []any{
@@ -223,7 +238,7 @@ func (s *service) ChangeAssign(ctx context.Context, userId, taskId, newAssignId 
 	return assignee, nil
 }
 
-func (s *service) ChangeReporter(ctx context.Context, userId, taskId, newreporterId uuid.UUID) (models.User, error) {
+func (s *service) ChangeReporter(ctx context.Context, actor auth.Actor, taskId, newreporterId uuid.UUID) (models.User, error) {
 	const op = "Change Task Reporter"
 
 	loggingFields := []any{
@@ -252,7 +267,7 @@ func (s *service) ChangeReporter(ctx context.Context, userId, taskId, newreporte
 	return reporter, nil
 }
 
-func (s *service) ChangeSprint(ctx context.Context, userId, taskId, newSprintId uuid.UUID) (models.Sprint, error) {
+func (s *service) ChangeSprint(ctx context.Context, actor auth.Actor, taskId, newSprintId uuid.UUID) (models.Sprint, error) {
 	const op = "Change Task Sprint"
 
 	loggingFields := []any{

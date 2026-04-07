@@ -1,9 +1,9 @@
 package task_handler
 
 import (
-	"strconv"
 	task_service "task_tracker/internal/application/task"
 	dto "task_tracker/internal/handler/task/dto"
+	"task_tracker/internal/transport/http/middleware"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -33,13 +33,10 @@ func New(service task_service.TaskService) handler { //TODO: must return interfa
 
 func (h *handler) Create(ctx *gin.Context) {
 	var params dto.TaskRequest
-	strId := ctx.Param("id")
-	userId, err := uuid.Parse(strId)
-	if err != nil {
-		ctx.JSON(400, gin.H{
-			"invalid_user_id": strId,
-			"error":           err,
-		})
+	actor, ok := middleware.GetActor(ctx)
+	if !ok {
+		ctx.JSON(401, gin.H{"error": "unauthorized"})
+		return
 	}
 	if err := ctx.ShouldBindJSON(&params); err != nil {
 		ctx.JSON(400, gin.H{
@@ -48,7 +45,7 @@ func (h *handler) Create(ctx *gin.Context) {
 		return
 	}
 
-	task, err := h.service.Create(ctx.Request.Context(), uuid.UUID(userId), params)
+	task, err := h.service.Create(ctx.Request.Context(), actor, params)
 	if err != nil {
 		ctx.JSON(400, gin.H{"error": err.Error()})
 		return
@@ -80,20 +77,20 @@ func (h *handler) ListActiveByTeam(ctx *gin.Context) {
 }
 
 func (h *handler) ChangeStatus(ctx *gin.Context) {
-	input := ctx.Param("status")
-	// roleStr := ctx.Param("role")
-	userId, err := strconv.ParseUint(ctx.Param("user_id"), 10, 32)
-	if err != nil {
-		ctx.JSON(400, gin.H{"invalid_user_id": userId, "error": err})
+	actor, ok := middleware.GetActor(ctx)
+	if !ok {
+		ctx.JSON(401, gin.H{"error": "unauthorized"})
 		return
 	}
-	taskId, err := strconv.ParseUint(ctx.Param("task_id"), 10, 32)
+	statusStr := ctx.Param("status")
+	taskIdStr := ctx.Param("id")
+	taskId, err := uuid.Parse(taskIdStr)
 	if err != nil {
 		ctx.JSON(400, gin.H{"invalid__task_id": taskId, "error": err})
 		return
 	}
 
-	status, err := h.service.ChangeStatus(ctx.Request.Context(), userId, taskId, input)
+	status, err := h.service.ChangeStatus(ctx.Request.Context(), actor, taskId, statusStr)
 	if err != nil {
 		ctx.JSON(400, gin.H{
 			"error": err,
@@ -102,7 +99,8 @@ func (h *handler) ChangeStatus(ctx *gin.Context) {
 	}
 	ctx.JSON(201, gin.H{
 		"task_id":    taskId,
-		"user_id":    userId,
+		"user_id":    actor.Id,
+		"user_role":  actor.Role,
 		"new_status": status,
 	})
 }
