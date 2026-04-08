@@ -22,8 +22,8 @@ const (
 type TaskService interface {
 	Create(ctx context.Context, actor auth.Actor, task dto.TaskRequest) (models.Task, error)
 
-	GetActiveTasksByTeam(ctx context.Context, teamId uuid.UUID) ([]models.Task, error)
-	GetTeamById(ctx context.Context, teamId uuid.UUID) (models.Team, error)
+	GetActiveTasksByTeam(ctx context.Context, actor auth.Actor, teamId uuid.UUID) ([]models.Task, error)
+	GetTeamById(ctx context.Context, actor auth.Actor, teamId uuid.UUID) (models.Team, error)
 
 	ChangeStatus(ctx context.Context, actor auth.Actor, taskId uuid.UUID, newStatus string) (vo.Status, error)
 	ChangeBoard(ctx context.Context, actor auth.Actor, taskId, newBoardId uuid.UUID) (models.Board, error)
@@ -60,7 +60,7 @@ func (s *service) Create(ctx context.Context, actor auth.Actor, task dto.TaskReq
 	if err != nil {
 		return models.Task{}, logError(err, s.logger, loggingFields...)
 	}
-	if !user.Data.Role.CanModifyTaskInRestrictedState() {
+	if !user.Data.Role.IsManagerRole() {
 		return models.Task{}, logError(errors_task.ErrInvalidRights, s.logger, loggingFields...)
 	}
 
@@ -83,25 +83,34 @@ func (s *service) Create(ctx context.Context, actor auth.Actor, task dto.TaskReq
 	return s.repo.Create(ctx, model)
 }
 
-func (s *service) GetActiveTasksByTeam(ctx context.Context, teamId uuid.UUID) ([]models.Task, error) {
-	const op = "Get Active Task By Team ID"
+func (s *service) GetActiveTasksByTeam(ctx context.Context, actor auth.Actor, teamId uuid.UUID) ([]models.Task, error) {
+	const op = "GetActiveTaskByTeam"
 
 	loggingFields := []any{
 		"operation", op,
+		"user_id", actor.Id,
+		"user_role", actor.Role,
 		"team_id", teamId,
-		"user_role", "undefined",
 	}
 
-	tasks, err := s.repo.GetActiveByTeamId(ctx, teamId)
+	user, err := s.repo.GetUser(ctx, actor.Id)
 	if err != nil {
-		return []models.Task{}, logError(err, s.logger, loggingFields...)
+		return nil, logError(err, s.logger, loggingFields...)
+	}
+	if err = validation.IsAlloweToSeeTeamData(user.Data.Role, user.TeamId, teamId); err != nil {
+		return nil, err
+	}
+
+	tasks, err := s.repo.GetActiveTasksByTeam(ctx, teamId)
+	if err != nil {
+		return nil, logError(err, s.logger, loggingFields...)
 	}
 
 	logSuccess(s.logger, loggingFields...)
 	return tasks, nil
 }
 
-func (s *service) GetTeamById(ctx context.Context, teamId uuid.UUID) (models.Team, error) {
+func (s *service) GetTeamById(ctx context.Context, actor auth.Actor, teamId uuid.UUID) (models.Team, error) {
 	const op = "Get Team by ID"
 
 	loggingFields := []any{
@@ -144,7 +153,7 @@ func (s *service) ChangeStatus(ctx context.Context, actor auth.Actor, taskId uui
 		return newStatusVo, logError(err, s.logger, loggingFields...)
 	}
 
-	if !role.CanModifyTaskInRestrictedState() || newStatusVo.IsValid() != nil || newStatusVo.IsImmutable() != nil {
+	if !role.IsManagerRole() || newStatusVo.IsValid() != nil || newStatusVo.IsImmutable() != nil {
 		return newStatusVo, logError(err, s.logger, loggingFields...)
 	}
 
@@ -188,7 +197,7 @@ func (s *service) ChangeBoard(ctx context.Context, actor auth.Actor, taskId, new
 		return models.Board{}, logError(err, s.logger, loggingFields...)
 	}
 
-	if !role.CanModifyTaskInRestrictedState() {
+	if !role.IsManagerRole() {
 		return models.Board{}, logError(err, s.logger, loggingFields...)
 	}
 	board, err := s.repo.GetBoard(ctx, newBoardId)

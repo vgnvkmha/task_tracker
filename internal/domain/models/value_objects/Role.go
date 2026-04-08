@@ -21,7 +21,7 @@ func (r Role) IsValid() (Role, error) {
 	}
 }
 
-func (r Role) CanModifyTaskInRestrictedState() bool {
+func (r Role) IsManagerRole() bool {
 	switch r {
 	case Admin, Captain:
 		return true

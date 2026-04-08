@@ -58,13 +58,18 @@ func (h *handler) Create(ctx *gin.Context) {
 }
 
 func (h *handler) ListActiveByTeam(ctx *gin.Context) {
-	idStr := ctx.Param("id")
-	userId, err := uuid.Parse(idStr)
-	if err != nil {
-		ctx.JSON(400, gin.H{"error": "invalid id"})
+	actor, ok := middleware.GetActor(ctx)
+	if !ok {
+		ctx.JSON(401, gin.H{"error": "unauthorized"})
 		return
 	}
-	tasks, err := h.service.GetActiveTasksByTeam(ctx.Request.Context(), userId)
+	teamIdStr := ctx.Param("id")
+	teamId, err := uuid.Parse(teamIdStr)
+	if err != nil {
+		ctx.JSON(400, gin.H{"invalid_team_id": teamIdStr, "error": err})
+		return
+	}
+	tasks, err := h.service.GetActiveTasksByTeam(ctx.Request.Context(), actor, teamId)
 	if err != nil {
 		ctx.JSON(400, gin.H{"error": err.Error()})
 		return

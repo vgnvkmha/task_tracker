@@ -10,7 +10,7 @@ import (
 	valueobjects "task_tracker/internal/domain/models/value_objects"
 )
 
-const actorKey = "actor"
+const actorKey = "actor" //TODO: remove hadrcode
 
 func ActorMiddleware() gin.HandlerFunc {
 	return func(ctx *gin.Context) {

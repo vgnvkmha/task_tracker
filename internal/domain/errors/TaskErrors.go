@@ -13,4 +13,5 @@ var (
 	ErrTaskUser                = errors.New("all users must be active")
 	ErrInvalidTime             = errors.New("date must be in the future")
 	ErrSameChange              = errors.New("nothing to change")
+	ErrUnableToSeeTeamData     = errors.New("can't see team data due to different team/invalid rights")
 )

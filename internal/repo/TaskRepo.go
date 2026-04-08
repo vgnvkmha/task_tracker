@@ -19,7 +19,7 @@ type TaskRepo interface {
 	GetUser(ctx context.Context, userId uuid.UUID) (models.User, error)
 	GetBoard(ctx context.Context, boardId uuid.UUID) (models.Board, error)
 	GetSprint(ctx context.Context, sprintId uuid.UUID) (models.Sprint, error)
-	GetActiveByTeamId(ctx context.Context, teamId uuid.UUID) ([]models.Task, error)
+	GetActiveTasksByTeam(ctx context.Context, teamId uuid.UUID) ([]models.Task, error)
 }
 
 type repo struct {
@@ -217,7 +217,7 @@ func (r *repo) GetSprint(ctx context.Context, sprintId uuid.UUID) (models.Sprint
 	return sprint, nil
 }
 
-func (r *repo) GetActiveByTeamId(ctx context.Context, teamId uuid.UUID) ([]models.Task, error) {
+func (r *repo) GetActiveTasksByTeam(ctx context.Context, teamId uuid.UUID) ([]models.Task, error) {
 	query := `
 		SELECT id, name, description, status, board, due_to
 		FROM task
