@@ -25,8 +25,8 @@ type handler struct {
 	service task_service.TaskService
 }
 
-func New(service task_service.TaskService) handler { //TODO: must return interface
-	return handler{
+func New(service task_service.TaskService) TaskHandler { //TODO: must return interface
+	return &handler{
 		service: service,
 	}
 }
@@ -108,4 +108,20 @@ func (h *handler) ChangeStatus(ctx *gin.Context) {
 		"user_role":  actor.Role,
 		"new_status": status,
 	})
+}
+
+func (h *handler) ChangeBoard(ctx *gin.Context) {
+
+}
+
+func (h *handler) ChangeAssign(ctx *gin.Context) {
+
+}
+
+func (h *handler) ChangeReporter(ctx *gin.Context) {
+
+}
+
+func (h *handler) ChangeSprint(ctx *gin.Context) {
+
 }
