@@ -1,7 +1,9 @@
 package models
 
+import "github.com/google/uuid"
+
 type Team struct {
-	ID      uint32
+	ID      uuid.UUID
 	Name    string
-	UsersId []uint32
+	UsersId []*uuid.UUID
 }
