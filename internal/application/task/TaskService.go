@@ -155,9 +155,6 @@ func (s *service) ChangeStatus(ctx context.Context, actor auth.Actor, taskId uui
 	if err != nil {
 		return newStatusVo, logError(err, s.logger, loggingFields...)
 	}
-	if err != nil {
-		return newStatusVo, logError(err, s.logger, loggingFields...)
-	}
 	usersData, err := s.repo.GetPersonalData(ctx, user.DataId)
 	if err != nil {
 		return newStatusVo, logError(err, s.logger, loggingFields...)
