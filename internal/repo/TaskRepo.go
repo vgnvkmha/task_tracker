@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 type TaskRepo interface {
@@ -34,11 +35,11 @@ func New(db *sql.DB) TaskRepo {
 
 func (r *repo) Create(ctx context.Context, task models.Task) (models.Task, error) {
 	const query = `
-		INSERT INTO task (id, name, description, status, created_at, due_to, board_id, reporter_id, assignee_id, sprint_id)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, &9, &10)
+		INSERT INTO tasks (id, name, description, status, created_at, due_to, updated_at, reporter_id, assignee_id, board_id, sprint_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 	`
 
-	err := r.db.QueryRowContext(
+	_, err := r.db.ExecContext(
 		ctx,
 		query,
 		task.Id,
@@ -47,9 +48,10 @@ func (r *repo) Create(ctx context.Context, task models.Task) (models.Task, error
 		task.Status,
 		task.CreatedAt,
 		task.DueTo,
-		task.BoardId,
+		task.UpdatedAt,
 		task.ReporterId,
 		task.AssigneeId,
+		task.BoardId,
 		task.SprintId,
 	)
 

@@ -14,5 +14,5 @@ type Sprint struct {
 	EndDate   time.Time
 	Status    valueobjects.SprintStatus
 	BoardId   uuid.UUID
-	TasksIds  uuid.UUID
+	TasksIds  []uuid.UUID
 }

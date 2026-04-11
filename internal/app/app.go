@@ -7,6 +7,7 @@ import (
 	"task_tracker/internal/domain/logger"
 	task_handler "task_tracker/internal/handler/task"
 	"task_tracker/internal/repo"
+	"task_tracker/internal/transport/http/middleware"
 
 	"github.com/gin-gonic/gin"
 )
@@ -34,6 +35,7 @@ func Run() error {
 	handler := task_handler.New(service)
 
 	router := gin.Default()
+	router.Use(middleware.MockActorMiddleware())
 	task_handler.RegisterRoutes(router, handler)
 	return router.RunTLS(":8080", "cert.pem", "key.pem")
 }

@@ -7,6 +7,7 @@ import (
 )
 
 type TaskRequest struct {
+	Id          uuid.UUID  `json:"task_id"`
 	Name        string     `json:"name"`
 	Description string     `json:"description"`
 	BoardID     uuid.UUID  `json:"board_id"`

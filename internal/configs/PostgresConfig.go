@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/url"
 	"task_tracker/internal/helpers"
+
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 type PostgresConfig struct {
