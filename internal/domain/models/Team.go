@@ -3,7 +3,6 @@ package models
 import "github.com/google/uuid"
 
 type Team struct {
-	ID      uuid.UUID
-	Name    string
-	UsersId []*uuid.UUID
+	ID   uuid.UUID
+	Name string
 }

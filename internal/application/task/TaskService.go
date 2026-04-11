@@ -3,7 +3,7 @@ package task_service
 import (
 	"context"
 	"task_tracker/internal/domain/auth"
-	errors_task "task_tracker/internal/domain/errors"
+	task_errors "task_tracker/internal/domain/errors"
 	"task_tracker/internal/domain/models"
 	vo "task_tracker/internal/domain/models/value_objects"
 	"task_tracker/internal/domain/validation"
@@ -60,8 +60,13 @@ func (s *service) Create(ctx context.Context, actor auth.Actor, task dto.TaskReq
 	if err != nil {
 		return models.Task{}, logError(err, s.logger, loggingFields...)
 	}
-	if !user.Data.Role.IsManagerRole() {
-		return models.Task{}, logError(errors_task.ErrInvalidRights, s.logger, loggingFields...)
+
+	usersData, err := s.repo.GetPersonalData(ctx, user.DataId)
+	if err != nil {
+		return models.Task{}, logError(err, s.logger, loggingFields...)
+	}
+	if !usersData.Role.IsManagerRole() {
+		return models.Task{}, logError(task_errors.ErrInvalidRights, s.logger, loggingFields...)
 	}
 
 	id := uuid.New()
@@ -80,7 +85,7 @@ func (s *service) Create(ctx context.Context, actor auth.Actor, task dto.TaskReq
 	}
 
 	logSuccess(s.logger, loggingFields...)
-	return s.repo.Create(ctx, model)
+	return s.repo.CreateTask(ctx, model)
 }
 
 func (s *service) GetActiveTasksByTeam(ctx context.Context, actor auth.Actor, teamId uuid.UUID) ([]models.Task, error) {
@@ -97,7 +102,11 @@ func (s *service) GetActiveTasksByTeam(ctx context.Context, actor auth.Actor, te
 	if err != nil {
 		return nil, logError(err, s.logger, loggingFields...)
 	}
-	if err = validation.IsAlloweToSeeTeamData(user.Data.Role, user.TeamId, teamId); err != nil {
+	usersData, err := s.repo.GetPersonalData(ctx, user.DataId)
+	if err != nil {
+		return nil, logError(err, s.logger, loggingFields...)
+	}
+	if err = validation.IsAlloweToSeeTeamData(usersData.Role, user.TeamId, teamId); err != nil {
 		return nil, err
 	}
 
@@ -146,14 +155,14 @@ func (s *service) ChangeStatus(ctx context.Context, actor auth.Actor, taskId uui
 	if err != nil {
 		return newStatusVo, logError(err, s.logger, loggingFields...)
 	}
-	role, err := user.Data.Role.IsValid()
-
-	loggingFields[7] = role
 	if err != nil {
 		return newStatusVo, logError(err, s.logger, loggingFields...)
 	}
-
-	if !role.IsManagerRole() || newStatusVo.IsValid() != nil || newStatusVo.IsImmutable() != nil {
+	usersData, err := s.repo.GetPersonalData(ctx, user.DataId)
+	if err != nil {
+		return newStatusVo, logError(err, s.logger, loggingFields...)
+	}
+	if !usersData.Role.IsManagerRole() || newStatusVo.IsValid() != nil || newStatusVo.IsImmutable() != nil {
 		return newStatusVo, logError(err, s.logger, loggingFields...)
 	}
 
@@ -190,14 +199,12 @@ func (s *service) ChangeBoard(ctx context.Context, actor auth.Actor, taskId, new
 	if err != nil {
 		return models.Board{}, logError(err, s.logger, loggingFields...)
 	}
-	role, err := user.Data.Role.IsValid()
-
-	loggingFields[7] = role
+	usersData, err := s.repo.GetPersonalData(ctx, user.DataId)
 	if err != nil {
 		return models.Board{}, logError(err, s.logger, loggingFields...)
 	}
 
-	if !role.IsManagerRole() {
+	if !usersData.Role.IsManagerRole() {
 		return models.Board{}, logError(err, s.logger, loggingFields...)
 	}
 	board, err := s.repo.GetBoard(ctx, newBoardId)

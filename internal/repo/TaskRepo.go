@@ -12,7 +12,13 @@ import (
 )
 
 type TaskRepo interface {
-	Create(ctx context.Context, task models.Task) (models.Task, error)
+	CreateTask(ctx context.Context, task models.Task) (models.Task, error)
+	CreateUser(ctx context.Context, user models.User) (models.User, error)
+	CreateBoard(ctx context.Context, board models.Board) (models.Board, error)
+	CreateSprint(ctx context.Context, sprint models.Sprint) (models.Sprint, error)
+	CreateTeam(ctx context.Context, team models.Team) (models.Team, error)
+	CreatePersonalData(ctx context.Context, data models.PersonalData) (models.PersonalData, error)
+
 	Update(ctx context.Context, task models.Task) error
 
 	GetTask(ctx context.Context, taskId uuid.UUID) (models.Task, error)
@@ -20,6 +26,8 @@ type TaskRepo interface {
 	GetUser(ctx context.Context, userId uuid.UUID) (models.User, error)
 	GetBoard(ctx context.Context, boardId uuid.UUID) (models.Board, error)
 	GetSprint(ctx context.Context, sprintId uuid.UUID) (models.Sprint, error)
+	GetPersonalData(ctx context.Context, dataId uuid.UUID) (models.PersonalData, error)
+
 	GetActiveTasksByTeam(ctx context.Context, teamId uuid.UUID) ([]models.Task, error)
 }
 
@@ -33,7 +41,7 @@ func New(db *sql.DB) TaskRepo {
 	}
 }
 
-func (r *repo) Create(ctx context.Context, task models.Task) (models.Task, error) {
+func (r *repo) CreateTask(ctx context.Context, task models.Task) (models.Task, error) {
 	const query = `
 		INSERT INTO tasks (id, name, description, status, created_at, due_to, updated_at, reporter_id, assignee_id, board_id, sprint_id)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
@@ -60,6 +68,109 @@ func (r *repo) Create(ctx context.Context, task models.Task) (models.Task, error
 	}
 
 	return task, nil
+}
+
+func (r *repo) CreateUser(ctx context.Context, user models.User) (models.User, error) {
+	query := `INSERT INTO users (id, team_id, personal_data_id)
+		VALUES ($1, $2, $3)
+	`
+	_, err := r.db.ExecContext(
+		ctx,
+		query,
+		user.Id,
+		user.TeamId,
+		user.DataId,
+	)
+
+	if err != nil {
+		return models.User{}, err
+	}
+
+	return user, nil
+}
+
+func (r *repo) CreateBoard(ctx context.Context, board models.Board) (models.Board, error) {
+	const query = `
+		INSERT INTO boards (id, team_id, is_public, name, created_at)
+		VALUES ($1, $2, $3, $4)
+	`
+
+	_, err := r.db.ExecContext(
+		ctx,
+		query,
+		board.Id,
+		board.TeamId,
+		board.IsPublic,
+		board.Name,
+		board.CreatedAt,
+	)
+	if err != nil {
+		return models.Board{}, err
+	}
+
+	return board, nil
+}
+
+func (r *repo) CreateSprint(ctx context.Context, sprint models.Sprint) (models.Sprint, error) {
+	const query = `
+		INSERT INTO sprints (id, name, start_date, end_date, status, board_id)
+		VALUES ($1, $2, $3, $, $5, $6)
+	`
+
+	_, err := r.db.ExecContext(
+		ctx,
+		query,
+		sprint.Id,
+		sprint.Name,
+		sprint.StartDate,
+		sprint.EndDate,
+		sprint.Status,
+		sprint.BoardId,
+	)
+	if err != nil {
+		return models.Sprint{}, err
+	}
+
+	return sprint, nil
+}
+
+func (r *repo) CreateTeam(ctx context.Context, team models.Team) (models.Team, error) {
+	const query = `
+		INSERT INTO teams (id, name)
+		VALUES ($1, $2)
+	`
+
+	_, err := r.db.ExecContext(
+		ctx,
+		query,
+		team.ID,
+		team.Name,
+	)
+	if err != nil {
+		return models.Team{}, err
+	}
+
+	return team, nil
+}
+
+func (r *repo) CreatePersonalData(ctx context.Context, data models.PersonalData) (models.PersonalData, error) {
+	const query = `
+		INSERT INTO personal_datas (id, email. password, role)
+		VALUES ($1, $2, $3, $4)
+	`
+
+	_, err := r.db.ExecContext(
+		ctx,
+		query,
+		data.Id,
+		data.Email,
+		data.Password,
+		data.Role,
+	)
+	if err != nil {
+		return models.PersonalData{}, err
+	}
+	return data, nil
 }
 
 func (r *repo) Update(ctx context.Context, task models.Task) error {
@@ -139,7 +250,6 @@ func (r *repo) GetTeam(ctx context.Context, teamId uuid.UUID) (models.Team, erro
 	err := r.db.QueryRowContext(ctx, query, teamId).Scan(
 		&team.ID,
 		&team.Name,
-		&team.UsersId,
 	)
 
 	if err != nil {
@@ -155,14 +265,14 @@ func (r *repo) GetUser(ctx context.Context, userId uuid.UUID) (models.User, erro
 
 	query := `
 		SELECT *
-		FROM user
+		FROM users
 		WHERE id = $1
 	`
 
 	err := r.db.QueryRowContext(ctx, query, userId).Scan(
 		&user.Id,
 		&user.TeamId,
-		&user.Data,
+		&user.DataId,
 	)
 
 	if err != nil {
@@ -176,7 +286,7 @@ func (r *repo) GetBoard(ctx context.Context, boardId uuid.UUID) (models.Board, e
 
 	query := `
 		SELECT *
-		FROM board
+		FROM boards
 		WHERE id = $1
 	`
 	err := r.db.QueryRowContext(ctx, query, boardId).Scan(
@@ -198,7 +308,7 @@ func (r *repo) GetSprint(ctx context.Context, sprintId uuid.UUID) (models.Sprint
 
 	query := `
 		SELECT *
-		FROM sprint
+		FROM sprints
 		WHERE id = $1
 	`
 
@@ -219,10 +329,32 @@ func (r *repo) GetSprint(ctx context.Context, sprintId uuid.UUID) (models.Sprint
 	return sprint, nil
 }
 
+func (r *repo) GetPersonalData(ctx context.Context, dataId uuid.UUID) (models.PersonalData, error) {
+	var data models.PersonalData
+
+	const query = `
+		SELECT *
+		FROM personal_datas
+		WHERE id = $1
+	`
+
+	err := r.db.QueryRowContext(ctx, query, dataId).Scan(
+		&data.Id,
+		&data.Email,
+		&data.Password,
+		&data.Role,
+	)
+
+	if err != nil {
+		return models.PersonalData{}, err
+	}
+	return data, nil
+}
+
 func (r *repo) GetActiveTasksByTeam(ctx context.Context, teamId uuid.UUID) ([]models.Task, error) {
 	query := `
 		SELECT id, name, description, status, board, due_to
-		FROM task
+		FROM tasks
 		WHERE team_id = $1 AND status IN ($2, $3)
 		ORDER BY due_to ASC
 	`
