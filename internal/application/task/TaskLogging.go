@@ -5,7 +5,7 @@ import (
 )
 
 func logError(err error, logger *zap.SugaredLogger, fields ...any) error {
-	logger.Errorw("failed to change task",
+	logger.Errorw("failed to change task", //TODO: change message
 		append(fields, "error", err)...,
 	)
 	return err
