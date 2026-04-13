@@ -25,7 +25,7 @@ type Task struct {
 	SprintId    *uuid.UUID
 }
 
-func NewTask(
+func New(
 	id uuid.UUID,
 	name string,
 	description string,

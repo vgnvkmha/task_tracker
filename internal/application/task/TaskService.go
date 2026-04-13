@@ -85,7 +85,7 @@ func (s *service) Create(ctx context.Context, actor auth.Actor, task dto.TaskReq
 	}
 
 	logSuccess(s.logger, loggingFields...)
-	return s.repo.CreateTask(ctx, model)
+	return s.repo.Create(ctx, model)
 }
 
 func (s *service) GetActiveTasksByTeam(ctx context.Context, actor auth.Actor, teamId uuid.UUID) ([]models.Task, error) {
