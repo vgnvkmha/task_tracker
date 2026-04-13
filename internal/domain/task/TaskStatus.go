@@ -1,6 +1,4 @@
-package valueobjects
-
-import err "task_tracker/internal/domain/errors"
+package task
 
 type TaskStatus string
 
@@ -15,16 +13,16 @@ const (
 func (s TaskStatus) IsValid() error {
 	switch s {
 	case Todo, InProgress, Done, Closed, Archieved:
-		return err.ErrInvalidStatus
-	default:
 		return nil
+	default:
+		return ErrInvalidRole
 	}
 }
 
 func (s TaskStatus) IsImmutable() error {
 	switch s {
 	case Done, Closed:
-		return err.ErrImmutableTask
+		return ErrImmutableTask
 	default:
 		return nil
 	}

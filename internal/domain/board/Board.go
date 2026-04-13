@@ -1,7 +1,6 @@
 package board
 
 import (
-	valueobjects "task_tracker/internal/domain/value_objects"
 	"time"
 
 	"github.com/google/uuid"
@@ -10,9 +9,9 @@ import (
 type Board struct {
 	Id        uuid.UUID
 	TeamId    uuid.UUID
-	IsPublic  bool
-	Status    valueobjects.Status
 	Name      string
+	IsPublic  bool
+	Status    BoardStatus
 	CreatedAt time.Time
 }
 
@@ -24,8 +23,9 @@ func New(teamId uuid.UUID, isPublic bool, name string) (*Board, error) {
 	return &Board{
 		Id:        uuid.New(),
 		TeamId:    teamId,
-		IsPublic:  isPublic,
 		Name:      name,
+		IsPublic:  isPublic,
+		Status:    BoardActive,
 		CreatedAt: time.Now(),
 	}, nil
 }

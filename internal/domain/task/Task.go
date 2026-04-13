@@ -1,11 +1,7 @@
-package models
+package task
 
 import (
 	"strings"
-	err "task_tracker/internal/domain/errors"
-	task_errors "task_tracker/internal/domain/errors"
-	valueobjects "task_tracker/internal/domain/models/value_objects"
-	"task_tracker/internal/domain/validation"
 	"time"
 
 	uuid "github.com/google/uuid"
@@ -15,7 +11,7 @@ type Task struct {
 	Id          uuid.UUID
 	Name        string
 	Description string
-	Status      valueobjects.Status
+	Status      TaskStatus
 	CreatedAt   time.Time
 	DueTo       time.Time
 	UpdatedAt   time.Time
@@ -37,24 +33,24 @@ func New(
 ) (Task, error) {
 
 	if strings.TrimSpace(name) == "" {
-		return Task{}, task_errors.ErrTaskName
+		return Task{}, ErrTaskName
 	}
 	if boardID == uuid.Nil {
-		return Task{}, task_errors.ErrTaskBoard
+		return Task{}, ErrTaskBoard
 	}
 	if reporterID == uuid.Nil {
-		return Task{}, task_errors.ErrTaskUser
+		return Task{}, ErrTaskUser
 	}
 
 	if time.Now().After(dueTo) {
-		return Task{}, task_errors.ErrInvalidTime
+		return Task{}, ErrInvalidTime
 	}
 
 	task := Task{
 		Id:          id,
 		Name:        name,
 		Description: description,
-		Status:      valueobjects.Todo,
+		Status:      Todo,
 		BoardId:     boardID,
 		CreatedAt:   time.Now(),
 		DueTo:       dueTo,
@@ -66,13 +62,13 @@ func New(
 	return task, nil
 }
 
-func (t *Task) ChangeStatus(newStatus valueobjects.Status) error {
+func (t *Task) ChangeStatus(newStatus TaskStatus) error {
 	err := newStatus.IsValid()
 	if err != nil {
 		return err
 	}
 
-	if err = validation.IsValidStatusTransition(t.Status, newStatus); err != nil {
+	if err = IsValidStatusTransition(t.Status, newStatus); err != nil {
 		return err
 	}
 
@@ -82,10 +78,10 @@ func (t *Task) ChangeStatus(newStatus valueobjects.Status) error {
 
 func (t *Task) ChangeBoard(newBoardId uuid.UUID) error {
 	if t.BoardId == newBoardId {
-		return err.ErrSameChange
+		return ErrSameChange
 	}
 	if t.Status.IsImmutable() != nil {
-		return err.ErrInvalidStatus
+		return ErrInvalidRights
 	}
 	t.BoardId = newBoardId
 	return nil
@@ -93,10 +89,10 @@ func (t *Task) ChangeBoard(newBoardId uuid.UUID) error {
 
 func (t *Task) ChangeReporter(newReporterId uuid.UUID) error {
 	if t.ReporterId == newReporterId {
-		return err.ErrSameChange
+		return ErrSameChange
 	}
 	if t.Status.IsImmutable() != nil {
-		return err.ErrInvalidRights
+		return ErrInvalidRights
 	}
 	t.ReporterId = newReporterId
 	return nil
@@ -104,10 +100,10 @@ func (t *Task) ChangeReporter(newReporterId uuid.UUID) error {
 
 func (t *Task) ChangeAssignee(newAssigneeId *uuid.UUID) error {
 	if t.AssigneeId == newAssigneeId {
-		return err.ErrSameChange
+		return ErrSameChange
 	}
 	if t.Status.IsImmutable() != nil {
-		return err.ErrInvalidRights
+		return ErrInvalidRights
 	}
 	t.AssigneeId = newAssigneeId
 	return nil
@@ -115,10 +111,10 @@ func (t *Task) ChangeAssignee(newAssigneeId *uuid.UUID) error {
 
 func (t *Task) ChangeSprint(newSprintId *uuid.UUID) error {
 	if t.SprintId != nil && newSprintId != nil && *t.SprintId == *newSprintId {
-		return err.ErrSameChange
+		return ErrSameChange
 	}
 	if t.Status.IsImmutable() != nil {
-		return err.ErrImmutableTask
+		return ErrImmutableTask
 	}
 
 	t.SprintId = newSprintId

@@ -1,4 +1,4 @@
-package valueobjects
+package board
 
 type BoardStatus string
 

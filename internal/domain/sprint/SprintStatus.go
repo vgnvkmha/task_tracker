@@ -1,6 +1,8 @@
-package valueobjects
+package sprint
 
-import err "task_tracker/internal/domain/errors"
+import (
+	"errors"
+)
 
 type SprintStatus string
 
@@ -15,7 +17,7 @@ const (
 func (s SprintStatus) IsImmutable() error {
 	switch s {
 	case SprintCompleted, SprintCancelled:
-		return err.ErrInvalidRights
+		return errors.New("immutable sprint status")
 	default:
 		return nil
 	}

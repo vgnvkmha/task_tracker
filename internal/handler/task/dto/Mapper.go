@@ -1,8 +1,8 @@
 package dto
 
-import "task_tracker/internal/domain/models"
+import "task_tracker/internal/domain/task"
 
-func ToTaskResponse(t models.Task) TaskResponse {
+func ToTaskResponse(t task.Task) TaskResponse {
 	return TaskResponse{
 		Id:          t.Id.String(),
 		Name:        t.Name,
@@ -18,7 +18,7 @@ func ToTaskResponse(t models.Task) TaskResponse {
 	}
 }
 
-func ToTaskResponses(tasks []models.Task) []TaskResponse {
+func ToTaskResponses(tasks []task.Task) []TaskResponse {
 	res := make([]TaskResponse, 0, len(tasks))
 	for _, t := range tasks {
 		res = append(res, ToTaskResponse(t))

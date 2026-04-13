@@ -1,7 +1,7 @@
 package auth
 
 import (
-	valueobjects "task_tracker/internal/domain/models/value_objects"
+	valueobjects "task_tracker/internal/domain/value_objects"
 
 	"github.com/google/uuid"
 )
