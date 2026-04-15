@@ -3,15 +3,15 @@ package repo
 import (
 	"context"
 	"database/sql"
-	"task_tracker/internal/domain/models"
+	"task_tracker/internal/domain/board"
 
 	"github.com/google/uuid"
 )
 
 type BoardRepo interface {
-	Create(ctx context.Context, board models.Board) (models.Board, error)
-	Get(ctx context.Context, boardId uuid.UUID) (models.Board, error)
-	Update(ctx context.Context, board models.Board) (models.Board, error)
+	Create(ctx context.Context, b board.Board) (board.Board, error)
+	Get(ctx context.Context, boardId uuid.UUID) (board.Board, error)
+	Update(ctx context.Context, b board.Board) (board.Board, error)
 }
 
 type boardRepo struct {
@@ -24,7 +24,7 @@ func NewBoardRepo(db *sql.DB) BoardRepo {
 	}
 }
 
-func (r *boardRepo) Create(ctx context.Context, board models.Board) (models.Board, error) {
+func (r *boardRepo) Create(ctx context.Context, b board.Board) (board.Board, error) {
 	const query = `
 		INSERT INTO boards (id, team_id, is_public, name, created_at)
 		VALUES ($1, $2, $3, $4)
@@ -33,21 +33,21 @@ func (r *boardRepo) Create(ctx context.Context, board models.Board) (models.Boar
 	_, err := r.db.ExecContext(
 		ctx,
 		query,
-		board.Id,
-		board.TeamId,
-		board.IsPublic,
-		board.Name,
-		board.CreatedAt,
+		b.Id,
+		b.TeamId,
+		b.IsPublic,
+		b.Name,
+		b.CreatedAt,
 	)
 	if err != nil {
-		return models.Board{}, err
+		return board.Board{}, err
 	}
 
-	return board, nil
+	return b, nil
 }
 
-func (r *boardRepo) Get(ctx context.Context, boardId uuid.UUID) (models.Board, error) {
-	var board models.Board
+func (r *boardRepo) Get(ctx context.Context, boardId uuid.UUID) (board.Board, error) {
+	var b board.Board
 
 	query := `
 		SELECT *
@@ -55,20 +55,20 @@ func (r *boardRepo) Get(ctx context.Context, boardId uuid.UUID) (models.Board, e
 		WHERE id = $1
 	`
 	err := r.db.QueryRowContext(ctx, query, boardId).Scan(
-		&board.Id,
-		&board.TeamId,
-		&board.IsPublic,
-		&board.Name,
-		&board.CreatedAt,
+		&b.Id,
+		&b.TeamId,
+		&b.IsPublic,
+		&b.Name,
+		&b.CreatedAt,
 	)
 
 	if err != nil {
-		return models.Board{}, err
+		return board.Board{}, err
 	}
-	return board, nil
+	return b, nil
 }
 
-func (r *boardRepo) Update(ctx context.Context, board models.Board) (models.Board, error) {
+func (r *boardRepo) Update(ctx context.Context, b board.Board) (board.Board, error) {
 	//TODO: troubles are possible
 	const query = `
 		UPDATE boards
@@ -83,16 +83,16 @@ func (r *boardRepo) Update(ctx context.Context, board models.Board) (models.Boar
 	_, err := r.db.ExecContext(
 		ctx,
 		query,
-		board.TeamId,
-		board.IsPublic,
-		board.Name,
-		board.CreatedAt,
-		board.Id,
+		b.TeamId,
+		b.IsPublic,
+		b.Name,
+		b.CreatedAt,
+		b.Id,
 	)
 
 	if err != nil {
-		return models.Board{}, err
+		return board.Board{}, err
 	}
 
-	return board, nil
+	return b, nil
 }

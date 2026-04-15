@@ -7,15 +7,21 @@ import (
 	"github.com/google/uuid"
 
 	"task_tracker/internal/domain/auth"
-	valueobjects "task_tracker/internal/domain/models/value_objects"
+	valueobjects "task_tracker/internal/domain/value_objects"
 )
 
 const actorKey = "actor" //TODO: remove hadrcode
 
 func ActorMiddleware() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		userIDStr := ctx.GetHeader("X-User-ID")
+		userIDStr := ctx.GetHeader("X-User-ID") //TODO: remove after JWT integration
 		role := ctx.GetHeader("X-User-Role")
+		if !valueobjects.IsValidRole(role) {
+			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"error": "missing role",
+			})
+			return
+		}
 
 		userID, err := uuid.Parse(userIDStr)
 		if err != nil {

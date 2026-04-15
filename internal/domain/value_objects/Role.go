@@ -17,3 +17,13 @@ func (r Role) IsManagerRole() bool {
 		return false
 	}
 }
+
+func IsValidRole(role string) bool {
+	switch role {
+	case string(Admin), string(Captain), string(User), string(Guest):
+		return true
+	default:
+		return false
+	}
+
+}

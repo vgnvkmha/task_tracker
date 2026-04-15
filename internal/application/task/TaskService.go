@@ -6,6 +6,7 @@ import (
 	task_errors "task_tracker/internal/domain/errors"
 	"task_tracker/internal/domain/models"
 	vo "task_tracker/internal/domain/models/value_objects"
+	"task_tracker/internal/domain/task"
 	"task_tracker/internal/domain/validation"
 	dto "task_tracker/internal/handler/task/dto"
 	"task_tracker/internal/repo"
@@ -22,7 +23,7 @@ const (
 type TaskService interface {
 	Create(ctx context.Context, actor auth.Actor, task dto.TaskRequest) (models.Task, error)
 
-	GetActiveTasksByTeam(ctx context.Context, actor auth.Actor, teamId uuid.UUID) ([]models.Task, error)
+	GetActiveTasksByTeam(ctx context.Context, actor auth.Actor, teamId uuid.UUID) ([]task.Task, error)
 	GetTeamById(ctx context.Context, actor auth.Actor, teamId uuid.UUID) (models.Team, error)
 
 	ChangeStatus(ctx context.Context, actor auth.Actor, taskId uuid.UUID, newStatus string) (vo.Status, error)

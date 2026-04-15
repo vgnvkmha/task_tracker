@@ -3,15 +3,15 @@ package repo
 import (
 	"context"
 	"database/sql"
-	"task_tracker/internal/domain/models"
+	"task_tracker/internal/domain/sprint"
 
 	"github.com/google/uuid"
 )
 
 type SprintRepo interface {
-	Create(ctx context.Context, sprint models.Sprint) (models.Sprint, error)
-	Get(ctx context.Context, sprintId uuid.UUID) (models.Sprint, error)
-	Update(ctx context.Context, sprint models.Sprint) (models.Sprint, error)
+	Create(ctx context.Context, s sprint.Sprint) (sprint.Sprint, error)
+	Get(ctx context.Context, sprintId uuid.UUID) (sprint.Sprint, error)
+	Update(ctx context.Context, s sprint.Sprint) (sprint.Sprint, error)
 }
 
 type sprintRepo struct {
@@ -24,7 +24,7 @@ func NewSprintRepo(db *sql.DB) SprintRepo {
 	}
 }
 
-func (r *sprintRepo) Create(ctx context.Context, sprint models.Sprint) (models.Sprint, error) {
+func (r *sprintRepo) Create(ctx context.Context, s sprint.Sprint) (sprint.Sprint, error) {
 	const query = `
 		INSERT INTO sprints (id, name, start_date, end_date, status, board_id)
 		VALUES ($1, $2, $3, $, $5, $6)
@@ -33,22 +33,22 @@ func (r *sprintRepo) Create(ctx context.Context, sprint models.Sprint) (models.S
 	_, err := r.db.ExecContext(
 		ctx,
 		query,
-		sprint.Id,
-		sprint.Name,
-		sprint.StartDate,
-		sprint.EndDate,
-		sprint.Status,
-		sprint.BoardId,
+		s.Id,
+		s.Name,
+		s.StartDate,
+		s.EndDate,
+		s.Status,
+		s.BoardId,
 	)
 	if err != nil {
-		return models.Sprint{}, err
+		return sprint.Sprint{}, err
 	}
 
-	return sprint, nil
+	return s, nil
 }
 
-func (r *sprintRepo) Get(ctx context.Context, sprintId uuid.UUID) (models.Sprint, error) {
-	var sprint models.Sprint
+func (r *sprintRepo) Get(ctx context.Context, sprintId uuid.UUID) (sprint.Sprint, error) {
+	var s sprint.Sprint
 
 	query := `
 		SELECT *
@@ -57,23 +57,22 @@ func (r *sprintRepo) Get(ctx context.Context, sprintId uuid.UUID) (models.Sprint
 	`
 
 	err := r.db.QueryRowContext(ctx, query, sprintId).Scan(
-		&sprint.Id,
-		&sprint.Name,
-		&sprint.StartDate,
-		&sprint.EndDate,
-		&sprint.Status,
-		&sprint.BoardId,
-		&sprint.TasksIds,
+		&s.Id,
+		&s.Name,
+		&s.StartDate,
+		&s.EndDate,
+		&s.Status,
+		&s.BoardId,
 	)
 
 	if err != nil {
-		return models.Sprint{}, err
+		return sprint.Sprint{}, err
 	}
 
-	return sprint, nil
+	return s, nil
 }
 
-func (r *sprintRepo) Update(ctx context.Context, sprint models.Sprint) (models.Sprint, error) {
+func (r *sprintRepo) Update(ctx context.Context, s sprint.Sprint) (sprint.Sprint, error) {
 	const query = `
 		UPDATE teams
 		SET
@@ -82,20 +81,20 @@ func (r *sprintRepo) Update(ctx context.Context, sprint models.Sprint) (models.S
 			end_date = $3,
 			status = $4,
 			board_id = $5
-		WHERE id = $6
+		WHERE id = $7
 	`
 	_, err := r.db.ExecContext(
 		ctx,
 		query,
-		sprint.Name,
-		sprint.StartDate,
-		sprint.EndDate,
-		sprint.Status,
-		sprint.BoardId,
-		sprint.Id,
+		s.Name,
+		s.StartDate,
+		s.EndDate,
+		s.Status,
+		s.BoardId,
+		s.Id,
 	)
 	if err != nil {
-		return models.Sprint{}, err
+		return sprint.Sprint{}, err
 	}
-	return sprint, nil
+	return s, nil
 }

@@ -3,15 +3,15 @@ package repo
 import (
 	"context"
 	"database/sql"
-	"task_tracker/internal/domain/models"
+	personaldata "task_tracker/internal/domain/personal_data"
 
 	"github.com/google/uuid"
 )
 
 type PersonalDataRepo interface {
-	Create(ctx context.Context, data models.PersonalData) (models.PersonalData, error)
-	Get(ctx context.Context, dataId uuid.UUID) (models.PersonalData, error)
-	Update(ctx context.Context, data models.PersonalData) (models.PersonalData, error)
+	Create(ctx context.Context, data personaldata.PersonalData) (personaldata.PersonalData, error)
+	Get(ctx context.Context, dataId uuid.UUID) (personaldata.PersonalData, error)
+	Update(ctx context.Context, data personaldata.PersonalData) (personaldata.PersonalData, error)
 }
 
 type personalDataRepo struct {
@@ -24,9 +24,10 @@ func NewPersonalDataRepo(db *sql.DB) PersonalDataRepo {
 	}
 }
 
-func (r *personalDataRepo) Create(ctx context.Context, data models.PersonalData) (models.PersonalData, error) {
+func (r *personalDataRepo) Create(ctx context.Context, data personaldata.PersonalData) (personaldata.PersonalData, error) {
+	//TODO: change entity
 	const query = `
-		INSERT INTO personal_datas (id, email. password, role)
+		INSERT INTO personal_datas (id, first_name. last_name, age, birth_date)
 		VALUES ($1, $2, $3, $4)
 	`
 
@@ -34,18 +35,19 @@ func (r *personalDataRepo) Create(ctx context.Context, data models.PersonalData)
 		ctx,
 		query,
 		data.Id,
-		data.Email,
-		data.Password,
-		data.Role,
+		data.FirstName,
+		data.LastName,
+		data.Age,
+		data.BirthDate,
 	)
 	if err != nil {
-		return models.PersonalData{}, err
+		return personaldata.PersonalData{}, err
 	}
 	return data, nil
 }
 
-func (r *personalDataRepo) Get(ctx context.Context, dataId uuid.UUID) (models.PersonalData, error) {
-	var data models.PersonalData
+func (r *personalDataRepo) Get(ctx context.Context, dataId uuid.UUID) (personaldata.PersonalData, error) {
+	var data personaldata.PersonalData
 
 	const query = `
 		SELECT *
@@ -55,38 +57,41 @@ func (r *personalDataRepo) Get(ctx context.Context, dataId uuid.UUID) (models.Pe
 
 	err := r.db.QueryRowContext(ctx, query, dataId).Scan(
 		&data.Id,
-		&data.Email,
-		&data.Password,
-		&data.Role,
+		&data.FirstName,
+		&data.LastName,
+		&data.Age,
+		&data.BirthDate,
 	)
 
 	if err != nil {
-		return models.PersonalData{}, err
+		return personaldata.PersonalData{}, err
 	}
 	return data, nil
 }
 
-func (r *personalDataRepo) Update(ctx context.Context, data models.PersonalData) (models.PersonalData, error) {
+func (r *personalDataRepo) Update(ctx context.Context, data personaldata.PersonalData) (personaldata.PersonalData, error) {
 	const query = `
 		UPDATE personal_datas
 		SET
-			email = $1,
-			password = $2,
-			role = $3
-		WHERE id = $4
+			first_name = $1,
+			last_name = $2,
+			age = $3
+			birth_date = $4
+		WHERE id = $5
 	`
 
 	_, err := r.db.ExecContext(
 		ctx,
 		query,
-		data.Email,
-		data.Password,
-		data.Role,
+		data.FirstName,
+		data.LastName,
+		data.Age,
+		data.BirthDate,
 		data.Id,
 	)
 
 	if err != nil {
-		return models.PersonalData{}, err
+		return personaldata.PersonalData{}, err
 	}
 
 	return data, nil

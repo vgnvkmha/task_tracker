@@ -13,10 +13,9 @@ type Sprint struct {
 	EndDate   time.Time
 	Status    SprintStatus
 	BoardId   uuid.UUID
-	TasksIds  []uuid.UUID
 }
 
-func New(name string, startDate, endDate time.Time, boardId uuid.UUID, tasksIds []uuid.UUID) (*Sprint, error) {
+func New(name string, startDate, endDate time.Time, boardId uuid.UUID) (*Sprint, error) {
 	if name == "" {
 
 	}
@@ -30,6 +29,5 @@ func New(name string, startDate, endDate time.Time, boardId uuid.UUID, tasksIds 
 		EndDate:   endDate,
 		Status:    SprintDraft,
 		BoardId:   boardId,
-		TasksIds:  tasksIds,
 	}, nil
 }
