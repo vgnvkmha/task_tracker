@@ -4,19 +4,21 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"task_tracker/internal/domain/models"
+	"task_tracker/internal/domain/task"
 	"time"
 
 	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
-type TaskRepo interface {
-	Create(ctx context.Context, task models.Task) (models.Task, error)
-	Get(ctx context.Context, taskId uuid.UUID) (models.Task, error)
-	Update(ctx context.Context, task models.Task) error
+type Task = task.Task
 
-	GetActiveByTeam(ctx context.Context, teamId uuid.UUID) ([]models.Task, error)
+type TaskRepo interface {
+	Create(ctx context.Context, task Task) (Task, error)
+	Get(ctx context.Context, taskId uuid.UUID) (Task, error)
+	Update(ctx context.Context, task Task) (Task, error)
+
+	GetActiveByTeam(ctx context.Context, teamId uuid.UUID) ([]Task, error)
 }
 
 type taskRepo struct {
@@ -29,7 +31,7 @@ func New(db *sql.DB) TaskRepo {
 	}
 }
 
-func (r *taskRepo) Create(ctx context.Context, task models.Task) (models.Task, error) {
+func (r *taskRepo) Create(ctx context.Context, task Task) (Task, error) {
 	const query = `
 		INSERT INTO tasks (id, name, description, status, created_at, due_to, updated_at, reporter_id, assignee_id, board_id, sprint_id)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
@@ -52,14 +54,14 @@ func (r *taskRepo) Create(ctx context.Context, task models.Task) (models.Task, e
 	)
 
 	if err != nil {
-		return models.Task{}, fmt.Errorf("create task: %v", err)
+		return Task{}, fmt.Errorf("create task: %v", err)
 	}
 
 	return task, nil
 }
 
-func (r *taskRepo) Get(ctx context.Context, taskId uuid.UUID) (models.Task, error) {
-	var task models.Task
+func (r *taskRepo) Get(ctx context.Context, taskId uuid.UUID) (Task, error) {
+	var task Task
 
 	query := `
 		SELECT *
@@ -81,13 +83,13 @@ func (r *taskRepo) Get(ctx context.Context, taskId uuid.UUID) (models.Task, erro
 	)
 
 	if err != nil {
-		return models.Task{}, err
+		return Task{}, err
 	}
 
 	return task, nil
 }
 
-func (r *taskRepo) Update(ctx context.Context, task models.Task) error {
+func (r *taskRepo) Update(ctx context.Context, task Task) (Task, error) {
 	const query = `
 		UPDATE task
 		SET 
@@ -120,10 +122,14 @@ func (r *taskRepo) Update(ctx context.Context, task models.Task) error {
 		task.Id,
 	)
 
-	return err
+	if err != nil {
+		return Task{}, err
+	}
+
+	return task, nil
 }
 
-func (r *taskRepo) GetActiveByTeam(ctx context.Context, teamId uuid.UUID) ([]models.Task, error) {
+func (r *taskRepo) GetActiveByTeam(ctx context.Context, teamId uuid.UUID) ([]Task, error) {
 	query := `
 		SELECT id, name, description, status, board, due_to
 		FROM tasks
@@ -137,10 +143,10 @@ func (r *taskRepo) GetActiveByTeam(ctx context.Context, teamId uuid.UUID) ([]mod
 	}
 	defer rows.Close()
 
-	var tasks []models.Task
+	var tasks []Task
 
 	for rows.Next() {
-		var t models.Task
+		var t Task
 
 		err := rows.Scan(
 			&t.Id,

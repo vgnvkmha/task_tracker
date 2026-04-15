@@ -8,10 +8,12 @@ import (
 	"github.com/google/uuid"
 )
 
+type User = user.User
+
 type UserRepo interface {
-	Create(ctx context.Context, u user.User) (user.User, error)
-	Get(ctx context.Context, userId uuid.UUID) (user.User, error)
-	Update(ctx context.Context, u user.User) (user.User, error)
+	Create(ctx context.Context, user User) (User, error)
+	Get(ctx context.Context, userId uuid.UUID) (User, error)
+	Update(ctx context.Context, user User) (User, error)
 }
 
 type userRepo struct {
@@ -24,7 +26,7 @@ func NewUserRepo(db *sql.DB) UserRepo {
 	}
 }
 
-func (r *userRepo) Create(ctx context.Context, u user.User) (user.User, error) {
+func (r *userRepo) Create(ctx context.Context, user User) (User, error) {
 	//TODO: update entity
 	const query = `
 		INSERT INTO users (id, team_id, email, password, role, personal_data_id)
@@ -34,23 +36,23 @@ func (r *userRepo) Create(ctx context.Context, u user.User) (user.User, error) {
 	_, err := r.db.ExecContext(
 		ctx,
 		query,
-		u.Id,
-		u.TeamId,
-		u.Email,
-		u.Password,
-		u.Role,
-		u.PersonalDataId,
+		user.Id,
+		user.TeamId,
+		user.Email,
+		user.Password,
+		user.Role,
+		user.PersonalDataId,
 	)
 
 	if err != nil {
-		return user.User{}, err
+		return User{}, err
 	}
 
-	return u, nil
+	return user, nil
 }
 
-func (r *userRepo) Get(ctx context.Context, userId uuid.UUID) (user.User, error) {
-	var u user.User
+func (r *userRepo) Get(ctx context.Context, userId uuid.UUID) (User, error) {
+	var user User
 
 	query := `
 		SELECT *
@@ -59,21 +61,21 @@ func (r *userRepo) Get(ctx context.Context, userId uuid.UUID) (user.User, error)
 	`
 
 	err := r.db.QueryRowContext(ctx, query, userId).Scan(
-		&u.Id,
-		&u.TeamId,
-		&u.Email,
-		&u.Password,
-		&u.Role,
-		&u.PersonalDataId,
+		&user.Id,
+		&user.TeamId,
+		&user.Email,
+		&user.Password,
+		&user.Role,
+		&user.PersonalDataId,
 	)
 
 	if err != nil {
-		return user.User{}, err
+		return User{}, err
 	}
-	return u, nil
+	return user, nil
 }
 
-func (r *userRepo) Update(ctx context.Context, u user.User) (user.User, error) {
+func (r *userRepo) Update(ctx context.Context, user User) (User, error) {
 	//TODO: troubles are possible
 	const query = `
 		UPDATE users
@@ -89,17 +91,17 @@ func (r *userRepo) Update(ctx context.Context, u user.User) (user.User, error) {
 	_, err := r.db.ExecContext(
 		ctx,
 		query,
-		u.TeamId,
-		u.Email,
-		u.Password,
-		u.Role,
-		u.PersonalDataId,
-		u.Id,
+		user.TeamId,
+		user.Email,
+		user.Password,
+		user.Role,
+		user.PersonalDataId,
+		user.Id,
 	)
 
 	if err != nil {
-		return user.User{}, err
+		return User{}, err
 	}
 
-	return u, nil
+	return user, nil
 }

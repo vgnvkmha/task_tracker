@@ -8,10 +8,12 @@ import (
 	"github.com/google/uuid"
 )
 
+type Sprint = sprint.Sprint
+
 type SprintRepo interface {
-	Create(ctx context.Context, s sprint.Sprint) (sprint.Sprint, error)
-	Get(ctx context.Context, sprintId uuid.UUID) (sprint.Sprint, error)
-	Update(ctx context.Context, s sprint.Sprint) (sprint.Sprint, error)
+	Create(ctx context.Context, sprint Sprint) (Sprint, error)
+	Get(ctx context.Context, sprintId uuid.UUID) (Sprint, error)
+	Update(ctx context.Context, sprint Sprint) (Sprint, error)
 }
 
 type sprintRepo struct {
@@ -24,31 +26,31 @@ func NewSprintRepo(db *sql.DB) SprintRepo {
 	}
 }
 
-func (r *sprintRepo) Create(ctx context.Context, s sprint.Sprint) (sprint.Sprint, error) {
+func (r *sprintRepo) Create(ctx context.Context, sprint Sprint) (Sprint, error) {
 	const query = `
 		INSERT INTO sprints (id, name, start_date, end_date, status, board_id)
-		VALUES ($1, $2, $3, $, $5, $6)
+		VALUES ($1, $2, $3, $4, $5, $6)
 	`
 
 	_, err := r.db.ExecContext(
 		ctx,
 		query,
-		s.Id,
-		s.Name,
-		s.StartDate,
-		s.EndDate,
-		s.Status,
-		s.BoardId,
+		sprint.Id,
+		sprint.Name,
+		sprint.StartDate,
+		sprint.EndDate,
+		sprint.Status,
+		sprint.BoardId,
 	)
 	if err != nil {
-		return sprint.Sprint{}, err
+		return Sprint{}, err
 	}
 
-	return s, nil
+	return sprint, nil
 }
 
-func (r *sprintRepo) Get(ctx context.Context, sprintId uuid.UUID) (sprint.Sprint, error) {
-	var s sprint.Sprint
+func (r *sprintRepo) Get(ctx context.Context, sprintId uuid.UUID) (Sprint, error) {
+	var sprint Sprint
 
 	query := `
 		SELECT *
@@ -57,22 +59,22 @@ func (r *sprintRepo) Get(ctx context.Context, sprintId uuid.UUID) (sprint.Sprint
 	`
 
 	err := r.db.QueryRowContext(ctx, query, sprintId).Scan(
-		&s.Id,
-		&s.Name,
-		&s.StartDate,
-		&s.EndDate,
-		&s.Status,
-		&s.BoardId,
+		&sprint.Id,
+		&sprint.Name,
+		&sprint.StartDate,
+		&sprint.EndDate,
+		&sprint.Status,
+		&sprint.BoardId,
 	)
 
 	if err != nil {
-		return sprint.Sprint{}, err
+		return Sprint{}, err
 	}
 
-	return s, nil
+	return sprint, nil
 }
 
-func (r *sprintRepo) Update(ctx context.Context, s sprint.Sprint) (sprint.Sprint, error) {
+func (r *sprintRepo) Update(ctx context.Context, sprint Sprint) (Sprint, error) {
 	const query = `
 		UPDATE teams
 		SET
@@ -86,15 +88,15 @@ func (r *sprintRepo) Update(ctx context.Context, s sprint.Sprint) (sprint.Sprint
 	_, err := r.db.ExecContext(
 		ctx,
 		query,
-		s.Name,
-		s.StartDate,
-		s.EndDate,
-		s.Status,
-		s.BoardId,
-		s.Id,
+		sprint.Name,
+		sprint.StartDate,
+		sprint.EndDate,
+		sprint.Status,
+		sprint.BoardId,
+		sprint.Id,
 	)
 	if err != nil {
-		return sprint.Sprint{}, err
+		return Sprint{}, err
 	}
-	return s, nil
+	return sprint, nil
 }

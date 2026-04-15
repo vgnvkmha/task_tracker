@@ -8,10 +8,12 @@ import (
 	"github.com/google/uuid"
 )
 
+type Board = board.Board
+
 type BoardRepo interface {
-	Create(ctx context.Context, b board.Board) (board.Board, error)
-	Get(ctx context.Context, boardId uuid.UUID) (board.Board, error)
-	Update(ctx context.Context, b board.Board) (board.Board, error)
+	Create(ctx context.Context, board Board) (Board, error)
+	Get(ctx context.Context, boardId uuid.UUID) (Board, error)
+	Update(ctx context.Context, board Board) (Board, error)
 }
 
 type boardRepo struct {
@@ -24,7 +26,7 @@ func NewBoardRepo(db *sql.DB) BoardRepo {
 	}
 }
 
-func (r *boardRepo) Create(ctx context.Context, b board.Board) (board.Board, error) {
+func (r *boardRepo) Create(ctx context.Context, board Board) (Board, error) {
 	const query = `
 		INSERT INTO boards (id, team_id, is_public, name, created_at)
 		VALUES ($1, $2, $3, $4)
@@ -33,21 +35,21 @@ func (r *boardRepo) Create(ctx context.Context, b board.Board) (board.Board, err
 	_, err := r.db.ExecContext(
 		ctx,
 		query,
-		b.Id,
-		b.TeamId,
-		b.IsPublic,
-		b.Name,
-		b.CreatedAt,
+		board.Id,
+		board.TeamId,
+		board.IsPublic,
+		board.Name,
+		board.CreatedAt,
 	)
 	if err != nil {
-		return board.Board{}, err
+		return Board{}, err
 	}
 
-	return b, nil
+	return board, nil
 }
 
-func (r *boardRepo) Get(ctx context.Context, boardId uuid.UUID) (board.Board, error) {
-	var b board.Board
+func (r *boardRepo) Get(ctx context.Context, boardId uuid.UUID) (Board, error) {
+	var board board.Board
 
 	query := `
 		SELECT *
@@ -55,20 +57,20 @@ func (r *boardRepo) Get(ctx context.Context, boardId uuid.UUID) (board.Board, er
 		WHERE id = $1
 	`
 	err := r.db.QueryRowContext(ctx, query, boardId).Scan(
-		&b.Id,
-		&b.TeamId,
-		&b.IsPublic,
-		&b.Name,
-		&b.CreatedAt,
+		&board.Id,
+		&board.TeamId,
+		&board.IsPublic,
+		&board.Name,
+		&board.CreatedAt,
 	)
 
 	if err != nil {
-		return board.Board{}, err
+		return Board{}, err
 	}
-	return b, nil
+	return board, nil
 }
 
-func (r *boardRepo) Update(ctx context.Context, b board.Board) (board.Board, error) {
+func (r *boardRepo) Update(ctx context.Context, board Board) (Board, error) {
 	//TODO: troubles are possible
 	const query = `
 		UPDATE boards
@@ -83,16 +85,16 @@ func (r *boardRepo) Update(ctx context.Context, b board.Board) (board.Board, err
 	_, err := r.db.ExecContext(
 		ctx,
 		query,
-		b.TeamId,
-		b.IsPublic,
-		b.Name,
-		b.CreatedAt,
-		b.Id,
+		board.TeamId,
+		board.IsPublic,
+		board.Name,
+		board.CreatedAt,
+		board.Id,
 	)
 
 	if err != nil {
-		return board.Board{}, err
+		return Board{}, err
 	}
 
-	return b, nil
+	return board, nil
 }

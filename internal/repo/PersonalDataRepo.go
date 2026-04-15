@@ -8,10 +8,12 @@ import (
 	"github.com/google/uuid"
 )
 
+type PersonalData = personaldata.PersonalData
+
 type PersonalDataRepo interface {
-	Create(ctx context.Context, data personaldata.PersonalData) (personaldata.PersonalData, error)
-	Get(ctx context.Context, dataId uuid.UUID) (personaldata.PersonalData, error)
-	Update(ctx context.Context, data personaldata.PersonalData) (personaldata.PersonalData, error)
+	Create(ctx context.Context, data PersonalData) (PersonalData, error)
+	Get(ctx context.Context, dataId uuid.UUID) (PersonalData, error)
+	Update(ctx context.Context, data PersonalData) (PersonalData, error)
 }
 
 type personalDataRepo struct {
@@ -24,7 +26,7 @@ func NewPersonalDataRepo(db *sql.DB) PersonalDataRepo {
 	}
 }
 
-func (r *personalDataRepo) Create(ctx context.Context, data personaldata.PersonalData) (personaldata.PersonalData, error) {
+func (r *personalDataRepo) Create(ctx context.Context, data PersonalData) (PersonalData, error) {
 	//TODO: change entity
 	const query = `
 		INSERT INTO personal_datas (id, first_name. last_name, age, birth_date)
@@ -41,13 +43,13 @@ func (r *personalDataRepo) Create(ctx context.Context, data personaldata.Persona
 		data.BirthDate,
 	)
 	if err != nil {
-		return personaldata.PersonalData{}, err
+		return PersonalData{}, err
 	}
 	return data, nil
 }
 
-func (r *personalDataRepo) Get(ctx context.Context, dataId uuid.UUID) (personaldata.PersonalData, error) {
-	var data personaldata.PersonalData
+func (r *personalDataRepo) Get(ctx context.Context, dataId uuid.UUID) (PersonalData, error) {
+	var data PersonalData
 
 	const query = `
 		SELECT *
@@ -64,12 +66,12 @@ func (r *personalDataRepo) Get(ctx context.Context, dataId uuid.UUID) (personald
 	)
 
 	if err != nil {
-		return personaldata.PersonalData{}, err
+		return PersonalData{}, err
 	}
 	return data, nil
 }
 
-func (r *personalDataRepo) Update(ctx context.Context, data personaldata.PersonalData) (personaldata.PersonalData, error) {
+func (r *personalDataRepo) Update(ctx context.Context, data PersonalData) (PersonalData, error) {
 	const query = `
 		UPDATE personal_datas
 		SET
@@ -91,7 +93,7 @@ func (r *personalDataRepo) Update(ctx context.Context, data personaldata.Persona
 	)
 
 	if err != nil {
-		return personaldata.PersonalData{}, err
+		return PersonalData{}, err
 	}
 
 	return data, nil
