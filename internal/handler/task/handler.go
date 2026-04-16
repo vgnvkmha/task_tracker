@@ -31,6 +31,18 @@ func New(service task_service.TaskService) TaskHandler { //TODO: must return int
 	}
 }
 
+//TODO: add realization, remove example
+// func MapErrorToStatus(err error) int {
+// 	switch err {
+// 	case application.ErrUserNotFound:
+// 		return http.StatusNotFound
+// 	case application.ErrEmailAlreadyInUse:
+// 		return http.StatusConflict
+// 	default:
+// 		return http.StatusInternalServerError
+// 	}
+// }
+
 func (h *handler) Create(ctx *gin.Context) {
 	var params dto.TaskRequest
 	actor, ok := middleware.GetActor(ctx)

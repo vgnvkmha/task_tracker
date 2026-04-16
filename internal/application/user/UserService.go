@@ -3,7 +3,7 @@ package user_service
 import (
 	"context"
 	"task_tracker/internal/domain/auth"
-	"task_tracker/internal/domain/models"
+	"task_tracker/internal/domain/user"
 	"task_tracker/internal/handler/task/dto"
 	"task_tracker/internal/repo"
 
@@ -15,10 +15,12 @@ const (
 	layer  = "service"
 )
 
+type User = user.User
+
 type UserService interface {
-	Register(ctx context.Context, user models.User) (models.User, error)
-	CreateByActor(ctx context.Context, actor auth.Actor, user models.User) (models.User, error)
-	Update(ctx context.Context, actor auth.Actor, update dto.UpdateUser) (models.User, error)
+	CreateRegister(ctx context.Context, user User) (User, error)
+	CreateByActor(ctx context.Context, actor auth.Actor, user User) (User, error)
+	Update(ctx context.Context, actor auth.Actor, update dto.UpdateUser) (User, error)
 }
 
 type userService struct {
@@ -36,22 +38,24 @@ func New(repo repo.UserRepo, logger *zap.SugaredLogger) UserService {
 	}
 }
 
-func (s *userService) Register(ctx context.Context, user models.User) (models.User, error) {
+func (s *userService) CreateRegister(ctx context.Context, user User) (User, error) {
 
 	return user, nil
 }
-func (s *userService) CreateByActor(ctx context.Context, actor auth.Actor, user models.User) (models.User, error) {
-	const op = "Create Task"
+
+// TODO: make personal data and user creation transaction
+func (s *userService) CreateByActor(ctx context.Context, actor auth.Actor, user User) (User, error) {
+	const op = "create task"
 
 	loggingFields := []any{
 		"operation", op,
 		"user_id", actor.Id,
 		"user_role", actor.Role,
 	}
-
+	user, err := user
 	return user, nil
 }
 
-func (s *userService) Update(ctx context.Context, actor auth.Actor, update dto.UpdateUser) (models.User, error) {
+func (s *userService) Update(ctx context.Context, actor auth.Actor, update dto.UpdateUser) (User, error) {
 	return nil
 }

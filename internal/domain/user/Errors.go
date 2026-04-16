@@ -12,6 +12,7 @@ var (
 	ErrEmptyEmail    = errors.New("email must be provided")
 	ErrEmptyPassword = errors.New("password must be provided")
 	ErrWeakPassword  = errors.New("password does not meet security requirements")
+	ErrEmptyDataId   = errors.New("personal data must be set")
 
 	// roles and rights
 	ErrInvalidRole      = errors.New("invalid user role")
@@ -22,6 +23,7 @@ var (
 	ErrInactiveUser  = errors.New("user is inactive")
 
 	// logical
-	ErrCannotDeleteSelf = errors.New("user cannot delete themselves")
-	ErrEmailAlreadyUsed = errors.New("email is already in use")
+	ErrCannotDeleteSelf    = errors.New("user cannot delete themselves")
+	ErrEmailAlreadyUsed    = errors.New("email is already in use")
+	ErrManagerMustHaveTeam = errors.New("manager must have a team")
 )
