@@ -1,4 +1,4 @@
-package repo
+package user_repo
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 
 type User = user.User
 
+// TODO: remove User output
 type UserRepo interface {
 	Create(ctx context.Context, user User) (User, error)
 	Get(ctx context.Context, userId uuid.UUID) (User, error)

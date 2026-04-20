@@ -4,15 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"task_tracker/internal/domain/team"
-
-	"github.com/google/uuid"
 )
 
 type Team = team.Team
 
 type TeamRepo interface {
 	Create(ctx context.Context, team Team) (Team, error)
-	Get(ctx context.Context, teamId uuid.UUID) (Team, error)
+	GetByName(ctx context.Context, teamName string) (Team, error)
 	Update(ctx context.Context, team Team) (Team, error)
 }
 
@@ -45,16 +43,16 @@ func (r *teamRepo) Create(ctx context.Context, team Team) (Team, error) {
 	return team, nil
 }
 
-func (r *teamRepo) Get(ctx context.Context, teamId uuid.UUID) (Team, error) {
+func (r *teamRepo) GetByName(ctx context.Context, teamName string) (Team, error) {
 	var team Team
 
 	query := `
 		SELECT *
 		FROM team
-		WHERE id = $1
+		WHERE name = $1
 	`
 
-	err := r.db.QueryRowContext(ctx, query, teamId).Scan(
+	err := r.db.QueryRowContext(ctx, query, teamName).Scan(
 		&team.ID,
 		&team.Name,
 	)

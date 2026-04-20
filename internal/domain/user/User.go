@@ -18,7 +18,7 @@ type User struct {
 func New(teamId, personalDataId uuid.UUID, emailRaw, passwordRaw, roleRaw string) (*User, error) {
 
 	if personalDataId == uuid.Nil {
-		return nil, ErrEmptyDataId
+		return nil, ErrEmptyData
 	}
 
 	email, err := valueobjects.NewEmail(emailRaw)

@@ -3,11 +3,8 @@ package task_service
 import (
 	"context"
 	"task_tracker/internal/domain/auth"
-	task_errors "task_tracker/internal/domain/errors"
-	"task_tracker/internal/domain/models"
-	vo "task_tracker/internal/domain/models/value_objects"
 	"task_tracker/internal/domain/task"
-	"task_tracker/internal/domain/validation"
+	vo "task_tracker/internal/domain/value_objects"
 	dto "task_tracker/internal/handler/task/dto"
 	"task_tracker/internal/repo"
 
@@ -20,14 +17,16 @@ const (
 	layer  = "service"
 )
 
+type Task = task.Task
+
 type TaskService interface {
-	Create(ctx context.Context, actor auth.Actor, task dto.TaskRequest) (models.Task, error)
+	Create(ctx context.Context, actor auth.Actor, task dto.TaskRequest) (Task, error)
 
 	GetActiveTasksByTeam(ctx context.Context, actor auth.Actor, teamId uuid.UUID) ([]task.Task, error)
-	GetTeamById(ctx context.Context, actor auth.Actor, teamId uuid.UUID) (models.Team, error)
+	GetTeamById(ctx context.Context, actor auth.Actor, teamId uuid.UUID) (Team, error)
 
 	ChangeStatus(ctx context.Context, actor auth.Actor, taskId uuid.UUID, newStatus string) (vo.Status, error)
-	ChangeBoard(ctx context.Context, actor auth.Actor, taskId, newBoardId uuid.UUID) (models.Board, error)
+	ChangeBoard(ctx context.Context, actor auth.Actor, taskId, newBoardId uuid.UUID) (Board, error)
 	ChangeAssign(ctx context.Context, actor auth.Actor, taskId, newAssignId uuid.UUID) (models.User, error)
 	ChangeReporter(ctx context.Context, actor auth.Actor, taskId, newreporterId uuid.UUID) (models.User, error)
 	ChangeSprint(ctx context.Context, actor auth.Actor, taskId, newSprintId uuid.UUID) (models.Sprint, error)
@@ -64,7 +63,7 @@ func (s *service) Create(ctx context.Context, actor auth.Actor, task dto.TaskReq
 
 	usersData, err := s.repo.GetPersonalData(ctx, user.DataId)
 	if err != nil {
-		return models.Task{}, logError(err, s.logger, loggingFields...)
+		return task.Task{}, logError(err, s.logger, loggingFields...)
 	}
 	if !usersData.Role.IsManagerRole() {
 		return models.Task{}, logError(task_errors.ErrInvalidRights, s.logger, loggingFields...)

@@ -12,7 +12,7 @@ var (
 	ErrEmptyEmail    = errors.New("email must be provided")
 	ErrEmptyPassword = errors.New("password must be provided")
 	ErrWeakPassword  = errors.New("password does not meet security requirements")
-	ErrEmptyDataId   = errors.New("personal data must be set")
+	ErrEmptyData     = errors.New("personal data must be set")
 
 	// roles and rights
 	ErrInvalidRole      = errors.New("invalid user role")
