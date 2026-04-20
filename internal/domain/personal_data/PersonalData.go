@@ -34,3 +34,16 @@ func New(firstName, lastName string, birthDate *time.Time, age *uint8) (*Persona
 		Age:       age,
 	}, nil
 }
+
+func (data *PersonalData) Validate() error {
+	if data.FirstName == "" {
+		return ErrFirstNameRequired
+	}
+	if data.LastName == "" {
+		return ErrLastNameRequired
+	}
+	if data.BirthDate != nil && data.BirthDate.After(time.Now()) {
+		return ErrInvalidBirthDate
+	}
+	return nil
+}

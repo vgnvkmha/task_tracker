@@ -4,8 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"task_tracker/internal/domain/user"
-
-	"github.com/google/uuid"
 )
 
 type User = user.User
@@ -13,7 +11,7 @@ type User = user.User
 // TODO: remove User output
 type UserRepo interface {
 	Create(ctx context.Context, user User) (User, error)
-	Get(ctx context.Context, userId uuid.UUID) (User, error)
+	Get(ctx context.Context, email string) (User, error)
 	Update(ctx context.Context, user User) (User, error)
 }
 
@@ -52,16 +50,16 @@ func (r *userRepo) Create(ctx context.Context, user User) (User, error) {
 	return user, nil
 }
 
-func (r *userRepo) Get(ctx context.Context, userId uuid.UUID) (User, error) {
+func (r *userRepo) Get(ctx context.Context, email string) (User, error) {
 	var user User
 
 	query := `
 		SELECT *
 		FROM users
-		WHERE id = $1
+		WHERE email = $1
 	`
 
-	err := r.db.QueryRowContext(ctx, query, userId).Scan(
+	err := r.db.QueryRowContext(ctx, query, email).Scan(
 		&user.Id,
 		&user.TeamId,
 		&user.Email,

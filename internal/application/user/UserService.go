@@ -2,13 +2,17 @@ package user
 
 import (
 	"context"
+	"errors"
 	"task_tracker/internal/application/common"
 	"task_tracker/internal/domain/auth"
 	personaldata "task_tracker/internal/domain/personal_data"
 	"task_tracker/internal/domain/user"
+	valueobjects "task_tracker/internal/domain/value_objects"
 	"task_tracker/internal/repo"
 	user_repo "task_tracker/internal/repo/user"
+	"task_tracker/internal/transport/http/middleware"
 
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
@@ -21,8 +25,8 @@ type User = user.User
 
 type UserService interface {
 	CreateRegister(ctx context.Context, userInput CreateUserInput) (User, error)
-	CreateByActor(ctx context.Context, actor auth.Actor, userInput CreateUserInput) (User, error)
-	Update(ctx context.Context, actor auth.Actor, userInput CreateUserInput) (User, error)
+	CreateByActor(ctx context.Context, userInput CreateUserInput, actor middleware.Actor) (User, error) //TODO: add actor
+	Update(ctx context.Context, actor auth.Actor, userInput UpdateUserInput) (User, error)
 }
 
 type userService struct {
@@ -45,57 +49,200 @@ func New(userRepo user_repo.UserRepo, dataRepo user_repo.PersonalDataRepo, logge
 	}
 }
 
-func (s *userService) CreateRegister(ctx context.Context, userInput CreateUserInput) (User, error) {
-	var mappedUser User
+func (s *userService) CreateRegister(ctx context.Context, userInput CreateUserInput, actor middleware.Actor) (User, error) {
+	var u User
 	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
-		var teamName *string
+		var teamID uuid.UUID = uuid.Nil
+
 		if userInput.TeamName != nil {
-			teamName = nil
-		} else {
-			teamName = userInput.TeamName
+			team, err := s.teamRepo.GetByName(ctx, *userInput.TeamName)
+			if err != nil {
+				return ErrTeamNotFound
+			}
+			teamID = team.ID
 		}
 
-		team, err := s.teamRepo.GetByName(ctx, *teamName)
+		personalData, err := personaldata.New(
+			userInput.FirstName,
+			userInput.LastName,
+			userInput.BirthDate,
+			userInput.Age,
+		)
 		if err != nil {
 			return err
 		}
-		personalData, err := personaldata.New(userInput.FirstName, userInput.LastName, userInput.BirthDate, userInput.Age)
-		_, err = s.dataRepo.Create(ctx, *personalData)
-		mappedUser, err := user.New(team.ID, personalData.Id, userInput.Email, userInput.Password, *userInput.Role)
+
+		if _, err = s.dataRepo.Create(ctx, *personalData); err != nil {
+			return ErrPersonalDataCreateFailed
+		}
+
+		mappedUser, err := user.New(
+			teamID,
+			personalData.Id,
+			userInput.Email,
+			userInput.Password,
+			*userInput.Role,
+		)
 		if err != nil {
 			return err
 		}
+
 		createdUser, err := s.userRepo.Create(ctx, *mappedUser)
 		if err != nil {
-			return err
+			if errors.Is(err, user.ErrAlreadyExists) {
+				return ErrUserAlreadyExists
+			}
+			return ErrCreateUserFailed
 		}
-		mappedUser.Id = createdUser.Id
-		mappedUser.TeamId = createdUser.TeamId
-		mappedUser.Email = createdUser.Email
-		mappedUser.Password = createdUser.Password
-		mappedUser.Role = createdUser.Role
-		mappedUser.PersonalDataId = createdUser.PersonalDataId
+
+		u = createdUser
 		return nil
 	})
+
 	if err != nil {
 		return User{}, err
 	}
-	return mappedUser, nil
+
+	return u, nil
 }
 
-// TODO: make personal data and user creation transaction
 func (s *userService) CreateByActor(ctx context.Context, actor auth.Actor, userInput CreateUserInput) (User, error) {
-	const op = "create task"
+	var u User
+	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
+		var teamID uuid.UUID = uuid.Nil
+		actorRole := valueobjects.Role(userInput.ActorRole)
+		if !actorRole.IsManagerRole() {
+			return ErrOnlyManagersCanCreate
+		}
+		if userInput.TeamName != nil {
+			team, err := s.teamRepo.GetByName(ctx, *userInput.TeamName)
+			if err != nil {
+				return ErrTeamNotFound
+			}
+			teamID = team.ID
+		}
 
-	loggingFields := []any{
-		"operation", op,
-		"user_id", actor.Id,
-		"user_role", actor.Role,
+		personalData, err := personaldata.New(
+			userInput.FirstName,
+			userInput.LastName,
+			userInput.BirthDate,
+			userInput.Age,
+		)
+		if err != nil {
+			return err
+		}
+
+		if _, err = s.dataRepo.Create(ctx, *personalData); err != nil {
+			return ErrPersonalDataCreateFailed
+		}
+
+		mappedUser, err := user.New(
+			teamID,
+			personalData.Id,
+			userInput.Email,
+			userInput.Password,
+			*userInput.Role,
+		)
+		if err != nil {
+			return err
+		}
+
+		createdUser, err := s.userRepo.Create(ctx, *mappedUser)
+		if err != nil {
+			return ErrUserCreateFailed
+		}
+
+		u = createdUser
+		return nil
+	})
+
+	if err != nil {
+		return User{}, err
 	}
-	user, err := user
-	return user, nil
+
+	return u, nil
 }
 
-func (s *userService) Update(ctx context.Context, actor auth.Actor, userInput CreateUserInput) (User, error) {
-	return nil
+func (s *userService) Update(ctx context.Context, actor auth.Actor, userInput UpdateUserInput) (User, error) {
+	var updatedUser User
+
+	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
+
+		existingUser, err := s.userRepo.Get(ctx, *userInput.Email)
+		if err != nil {
+			return ErrUserNotFound
+		}
+
+		if userInput.TeamName != nil {
+			team, err := s.teamRepo.GetByName(ctx, *userInput.TeamName)
+			if err != nil {
+				return ErrTeamNotFound
+			}
+			existingUser.TeamId = &team.ID
+		}
+
+		if userInput.FirstName != nil ||
+			userInput.LastName != nil ||
+			userInput.BirthDate != nil ||
+			userInput.Age != nil {
+
+			pd, err := s.dataRepo.Get(ctx, existingUser.PersonalDataId)
+			if err != nil {
+				return ErrPersonalDataNotFound
+			}
+
+			if userInput.FirstName != nil {
+				pd.FirstName = *userInput.FirstName
+			}
+			if userInput.LastName != nil {
+				pd.LastName = *userInput.LastName
+			}
+			if userInput.BirthDate != nil {
+				pd.BirthDate = userInput.BirthDate
+			}
+			if userInput.Age != nil {
+				pd.Age = userInput.Age
+			}
+
+			if err := pd.Validate(); err != nil {
+				return err
+			}
+
+			if _, err := s.dataRepo.Update(ctx, pd); err != nil {
+				return ErrPersonalDataUpdateFailed
+			}
+		}
+
+		email, err := valueobjects.NewEmail(*userInput.Email)
+		if err != nil {
+			return err
+		}
+		existingUser.Email = email
+
+		password, err := valueobjects.NewPassword(*userInput.Password)
+		if err != nil {
+			return err
+		}
+		existingUser.Password = password
+
+		if valueobjects.IsValidRole(*userInput.Role) {
+			existingUser.Role = valueobjects.Role(*userInput.Role)
+		} else {
+			return ErrInvalidRole
+		}
+
+		savedUser, err := s.userRepo.Update(ctx, existingUser)
+		if err != nil {
+			return ErrUserUpdateFailed
+		}
+
+		updatedUser = savedUser
+		return nil
+	})
+
+	if err != nil {
+		return User{}, err
+	}
+
+	return updatedUser, nil
 }

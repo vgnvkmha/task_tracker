@@ -9,7 +9,7 @@ import (
 type User struct {
 	Id             uuid.UUID
 	TeamId         *uuid.UUID
-	Email          valueobjects.Email
+	Email          valueobjects.Email //TODO: make unique in DB
 	Password       valueobjects.Password
 	Role           valueobjects.Role
 	PersonalDataId uuid.UUID

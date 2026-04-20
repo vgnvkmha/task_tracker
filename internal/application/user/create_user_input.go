@@ -2,13 +2,9 @@ package user
 
 import (
 	"time"
-
-	"github.com/google/uuid"
 )
 
 type CreateUserInput struct {
-	ActorId   uuid.UUID
-	ActorRole string
 	Email     string
 	Password  string
 	Role      *string
