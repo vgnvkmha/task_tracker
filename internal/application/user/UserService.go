@@ -10,7 +10,6 @@ import (
 	valueobjects "task_tracker/internal/domain/value_objects"
 	"task_tracker/internal/repo"
 	user_repo "task_tracker/internal/repo/user"
-	"task_tracker/internal/transport/http/middleware"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -25,7 +24,7 @@ type User = user.User
 
 type UserService interface {
 	CreateRegister(ctx context.Context, userInput CreateUserInput) (User, error)
-	CreateByActor(ctx context.Context, userInput CreateUserInput, actor middleware.Actor) (User, error) //TODO: add actor
+	CreateByActor(ctx context.Context, actor auth.Actor, userInput CreateUserInput) (User, error)
 	Update(ctx context.Context, actor auth.Actor, userInput UpdateUserInput) (User, error)
 }
 
@@ -38,18 +37,20 @@ type userService struct {
 	transaction common.TxManager
 }
 
-func New(userRepo user_repo.UserRepo, dataRepo user_repo.PersonalDataRepo, logger *zap.SugaredLogger) UserService {
+func New(userRepo user_repo.UserRepo, dataRepo user_repo.PersonalDataRepo, teamRepo repo.TeamRepo, logger *zap.SugaredLogger, transaction common.TxManager) UserService {
 	return &userService{
 		userRepo: userRepo,
 		dataRepo: dataRepo,
+		teamRepo: teamRepo,
 		logger: logger.With(
 			"module", module,
 			"layer", layer,
 		),
+		transaction: transaction,
 	}
 }
 
-func (s *userService) CreateRegister(ctx context.Context, userInput CreateUserInput, actor middleware.Actor) (User, error) {
+func (s *userService) CreateRegister(ctx context.Context, userInput CreateUserInput) (User, error) {
 	var u User
 	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
 		var teamID uuid.UUID = uuid.Nil
@@ -110,7 +111,7 @@ func (s *userService) CreateByActor(ctx context.Context, actor auth.Actor, userI
 	var u User
 	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
 		var teamID uuid.UUID = uuid.Nil
-		actorRole := valueobjects.Role(userInput.ActorRole)
+		actorRole := valueobjects.Role(actor.Role)
 		if !actorRole.IsManagerRole() {
 			return ErrOnlyManagersCanCreate
 		}
@@ -173,12 +174,12 @@ func (s *userService) Update(ctx context.Context, actor auth.Actor, userInput Up
 			return ErrUserNotFound
 		}
 
-		if userInput.TeamName != nil {
+		if userInput.TeamId != nil {
 			team, err := s.teamRepo.GetByName(ctx, *userInput.TeamName)
 			if err != nil {
 				return ErrTeamNotFound
 			}
-			existingUser.TeamId = &team.ID
+			existingUser.TeamID = &team.ID
 		}
 
 		if userInput.FirstName != nil ||
@@ -186,7 +187,7 @@ func (s *userService) Update(ctx context.Context, actor auth.Actor, userInput Up
 			userInput.BirthDate != nil ||
 			userInput.Age != nil {
 
-			pd, err := s.dataRepo.Get(ctx, existingUser.PersonalDataId)
+			pd, err := s.dataRepo.Get(ctx, existingUser.PersonalDataID)
 			if err != nil {
 				return ErrPersonalDataNotFound
 			}

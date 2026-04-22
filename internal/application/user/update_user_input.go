@@ -12,6 +12,7 @@ type UpdateUserInput struct {
 	Email    *string
 	Password *string
 	Role     *string
+	TeamId   *uuid.UUID
 	TeamName *string
 
 	FirstName *string

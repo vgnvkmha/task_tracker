@@ -1,139 +1,139 @@
 package task_handler
 
-import (
-	task_service "task_tracker/internal/application/task"
-	dto "task_tracker/internal/handler/task/dto"
-	"task_tracker/internal/transport/http/middleware"
+// import (
+// 	task_service "task_tracker/internal/application/task"
+// 	dto "task_tracker/internal/handler/task/dto"
+// 	"task_tracker/internal/transport/http/middleware"
 
-	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
-)
+// 	"github.com/gin-gonic/gin"
+// 	"github.com/google/uuid"
+// )
 
-type TaskHandler interface {
-	Create(ctx *gin.Context)
+// type TaskHandler interface {
+// 	Create(ctx *gin.Context)
 
-	ListActiveByTeam(ctx *gin.Context)
+// 	ListActiveByTeam(ctx *gin.Context)
 
-	ChangeStatus(ctx *gin.Context)
-	ChangeBoard(ctx *gin.Context)
-	ChangeAssign(ctx *gin.Context)
-	ChangeReporter(ctx *gin.Context)
-	ChangeSprint(ctx *gin.Context)
-}
+// 	ChangeStatus(ctx *gin.Context)
+// 	ChangeBoard(ctx *gin.Context)
+// 	ChangeAssign(ctx *gin.Context)
+// 	ChangeReporter(ctx *gin.Context)
+// 	ChangeSprint(ctx *gin.Context)
+// }
 
-type handler struct {
-	service task_service.TaskService
-}
+// type handler struct {
+// 	service task_service.TaskService
+// }
 
-func New(service task_service.TaskService) TaskHandler { //TODO: must return interface
-	return &handler{
-		service: service,
-	}
-}
-
-//TODO: add realization, remove example
-// func MapErrorToStatus(err error) int {
-// 	switch err {
-// 	case application.ErrUserNotFound:
-// 		return http.StatusNotFound
-// 	case application.ErrEmailAlreadyInUse:
-// 		return http.StatusConflict
-// 	default:
-// 		return http.StatusInternalServerError
+// func New(service task_service.TaskService) TaskHandler { //TODO: must return interface
+// 	return &handler{
+// 		service: service,
 // 	}
 // }
 
-func (h *handler) Create(ctx *gin.Context) {
-	var params dto.TaskRequest
-	actor, ok := middleware.GetActor(ctx)
-	if !ok {
-		ctx.JSON(401, gin.H{"error": "unauthorized"})
-		return
-	}
-	if err := ctx.ShouldBindJSON(&params); err != nil {
-		ctx.JSON(400, gin.H{
-			"error": err.Error(),
-		})
-		return
-	}
+// //TODO: add realization, remove example
+// // func MapErrorToStatus(err error) int {
+// // 	switch err {
+// // 	case application.ErrUserNotFound:
+// // 		return http.StatusNotFound
+// // 	case application.ErrEmailAlreadyInUse:
+// // 		return http.StatusConflict
+// // 	default:
+// // 		return http.StatusInternalServerError
+// // 	}
+// // }
 
-	task, err := h.service.Create(ctx.Request.Context(), actor, params)
-	if err != nil {
-		ctx.JSON(400, gin.H{"error": err.Error()})
-		return
-	}
+// func (h *handler) Create(ctx *gin.Context) {
+// 	var params dto.TaskRequest
+// 	actor, ok := middleware.GetActor(ctx)
+// 	if !ok {
+// 		ctx.JSON(401, gin.H{"error": "unauthorized"})
+// 		return
+// 	}
+// 	if err := ctx.ShouldBindJSON(&params); err != nil {
+// 		ctx.JSON(400, gin.H{
+// 			"error": err.Error(),
+// 		})
+// 		return
+// 	}
 
-	response := dto.ToTaskResponse(task)
-	ctx.JSON(201, gin.H{
-		"created_task": response,
-	})
-}
+// 	task, err := h.service.Create(ctx.Request.Context(), actor, params)
+// 	if err != nil {
+// 		ctx.JSON(400, gin.H{"error": err.Error()})
+// 		return
+// 	}
 
-func (h *handler) ListActiveByTeam(ctx *gin.Context) {
-	actor, ok := middleware.GetActor(ctx)
-	if !ok {
-		ctx.JSON(401, gin.H{"error": "unauthorized"})
-		return
-	}
-	teamIdStr := ctx.Param("id")
-	teamId, err := uuid.Parse(teamIdStr)
-	if err != nil {
-		ctx.JSON(400, gin.H{"invalid_team_id": teamIdStr, "error": err})
-		return
-	}
-	tasks, err := h.service.GetActiveTasksByTeam(ctx.Request.Context(), actor, teamId)
-	if err != nil {
-		ctx.JSON(400, gin.H{"error": err.Error()})
-		return
-	}
+// 	response := dto.ToTaskResponse(task)
+// 	ctx.JSON(201, gin.H{
+// 		"created_task": response,
+// 	})
+// }
 
-	results := dto.ToTaskResponses(tasks)
-	ctx.JSON(201, gin.H{
-		"active_tasks": results,
-	})
-}
+// func (h *handler) ListActiveByTeam(ctx *gin.Context) {
+// 	actor, ok := middleware.GetActor(ctx)
+// 	if !ok {
+// 		ctx.JSON(401, gin.H{"error": "unauthorized"})
+// 		return
+// 	}
+// 	teamIdStr := ctx.Param("id")
+// 	teamId, err := uuid.Parse(teamIdStr)
+// 	if err != nil {
+// 		ctx.JSON(400, gin.H{"invalid_team_id": teamIdStr, "error": err})
+// 		return
+// 	}
+// 	tasks, err := h.service.GetActiveTasksByTeam(ctx.Request.Context(), actor, teamId)
+// 	if err != nil {
+// 		ctx.JSON(400, gin.H{"error": err.Error()})
+// 		return
+// 	}
 
-func (h *handler) ChangeStatus(ctx *gin.Context) {
-	actor, ok := middleware.GetActor(ctx)
-	if !ok {
-		ctx.JSON(401, gin.H{"error": "unauthorized"})
-		return
-	}
-	statusStr := ctx.Param("status")
-	taskIdStr := ctx.Param("id")
-	taskId, err := uuid.Parse(taskIdStr)
-	if err != nil {
-		ctx.JSON(400, gin.H{"invalid__task_id": taskId, "error": err})
-		return
-	}
+// 	results := dto.ToTaskResponses(tasks)
+// 	ctx.JSON(201, gin.H{
+// 		"active_tasks": results,
+// 	})
+// }
 
-	status, err := h.service.ChangeStatus(ctx.Request.Context(), actor, taskId, statusStr)
-	if err != nil {
-		ctx.JSON(400, gin.H{
-			"error": err,
-		})
-		return
-	}
-	ctx.JSON(201, gin.H{
-		"task_id":    taskId,
-		"user_id":    actor.Id,
-		"user_role":  actor.Role,
-		"new_status": status,
-	})
-}
+// func (h *handler) ChangeStatus(ctx *gin.Context) {
+// 	actor, ok := middleware.GetActor(ctx)
+// 	if !ok {
+// 		ctx.JSON(401, gin.H{"error": "unauthorized"})
+// 		return
+// 	}
+// 	statusStr := ctx.Param("status")
+// 	taskIdStr := ctx.Param("id")
+// 	taskId, err := uuid.Parse(taskIdStr)
+// 	if err != nil {
+// 		ctx.JSON(400, gin.H{"invalid__task_id": taskId, "error": err})
+// 		return
+// 	}
 
-func (h *handler) ChangeBoard(ctx *gin.Context) {
+// 	status, err := h.service.ChangeStatus(ctx.Request.Context(), actor, taskId, statusStr)
+// 	if err != nil {
+// 		ctx.JSON(400, gin.H{
+// 			"error": err,
+// 		})
+// 		return
+// 	}
+// 	ctx.JSON(201, gin.H{
+// 		"task_id":    taskId,
+// 		"user_id":    actor.Id,
+// 		"user_role":  actor.Role,
+// 		"new_status": status,
+// 	})
+// }
 
-}
+// func (h *handler) ChangeBoard(ctx *gin.Context) {
 
-func (h *handler) ChangeAssign(ctx *gin.Context) {
+// }
 
-}
+// func (h *handler) ChangeAssign(ctx *gin.Context) {
 
-func (h *handler) ChangeReporter(ctx *gin.Context) {
+// }
 
-}
+// func (h *handler) ChangeReporter(ctx *gin.Context) {
 
-func (h *handler) ChangeSprint(ctx *gin.Context) {
+// }
 
-}
+// func (h *handler) ChangeSprint(ctx *gin.Context) {
+
+// }

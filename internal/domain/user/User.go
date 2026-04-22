@@ -7,12 +7,12 @@ import (
 )
 
 type User struct {
-	Id             uuid.UUID
-	TeamId         *uuid.UUID
+	ID             uuid.UUID
+	TeamID         *uuid.UUID
 	Email          valueobjects.Email //TODO: make unique in DB
 	Password       valueobjects.Password
 	Role           valueobjects.Role
-	PersonalDataId uuid.UUID
+	PersonalDataID uuid.UUID
 }
 
 func New(teamId, personalDataId uuid.UUID, emailRaw, passwordRaw, roleRaw string) (*User, error) {
@@ -41,12 +41,12 @@ func New(teamId, personalDataId uuid.UUID, emailRaw, passwordRaw, roleRaw string
 	}
 
 	user := &User{
-		Id:             uuid.New(),
-		TeamId:         &teamId,
+		ID:             uuid.New(),
+		TeamID:         &teamId,
 		Email:          email,
 		Password:       password,
 		Role:           role,
-		PersonalDataId: personalDataId,
+		PersonalDataID: personalDataId,
 	}
 
 	return user, nil

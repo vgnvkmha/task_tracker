@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"task_tracker/internal/domain/user"
+	"task_tracker/internal/infrastracture/db"
 )
 
 type User = user.User
@@ -26,23 +27,40 @@ func NewUserRepo(db *sql.DB) UserRepo {
 }
 
 func (r *userRepo) Create(ctx context.Context, user User) (User, error) {
-	//TODO: update entity
 	const query = `
 		INSERT INTO users (id, team_id, email, password, role, personal_data_id)
 		VALUES ($1, $2, $3, $4, $5, $6)
 	`
 
+	// 👉 если есть транзакция — используем её
+	if tx, ok := db.GetTx(ctx); ok {
+		_, err := tx.ExecContext(
+			ctx,
+			query,
+			user.ID,
+			user.TeamID,
+			user.Email,
+			user.Password,
+			user.Role,
+			user.PersonalDataID,
+		)
+		if err != nil {
+			return User{}, err
+		}
+		return user, nil
+	}
+
+	// 👉 если нет — используем обычный db
 	_, err := r.db.ExecContext(
 		ctx,
 		query,
-		user.Id,
-		user.TeamId,
+		user.ID,
+		user.TeamID,
 		user.Email,
 		user.Password,
 		user.Role,
-		user.PersonalDataId,
+		user.PersonalDataID,
 	)
-
 	if err != nil {
 		return User{}, err
 	}
@@ -60,12 +78,12 @@ func (r *userRepo) Get(ctx context.Context, email string) (User, error) {
 	`
 
 	err := r.db.QueryRowContext(ctx, query, email).Scan(
-		&user.Id,
-		&user.TeamId,
+		&user.ID,
+		&user.TeamID,
 		&user.Email,
 		&user.Password,
 		&user.Role,
-		&user.PersonalDataId,
+		&user.PersonalDataID,
 	)
 
 	if err != nil {
@@ -90,12 +108,12 @@ func (r *userRepo) Update(ctx context.Context, user User) (User, error) {
 	_, err := r.db.ExecContext(
 		ctx,
 		query,
-		user.TeamId,
+		user.TeamID,
 		user.Email,
 		user.Password,
 		user.Role,
-		user.PersonalDataId,
-		user.Id,
+		user.PersonalDataID,
+		user.ID,
 	)
 
 	if err != nil {

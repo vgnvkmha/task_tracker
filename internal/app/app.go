@@ -2,12 +2,17 @@ package app
 
 import (
 	"context"
-	task_service "task_tracker/internal/application/task"
+	// task_service "task_tracker/internal/application/task"
+	"task_tracker/internal/application/user"
 	"task_tracker/internal/configs"
 	"task_tracker/internal/domain/logger"
-	task_handler "task_tracker/internal/handler/task"
+	"task_tracker/internal/infrastracture/db"
 	"task_tracker/internal/repo"
+
+	// task_handler "task_tracker/internal/handler/task"
+	user_repo "task_tracker/internal/repo/user"
 	"task_tracker/internal/transport/http/middleware"
+	handler_user "task_tracker/internal/transport/http/user"
 
 	"github.com/gin-gonic/gin"
 )
@@ -21,7 +26,7 @@ func Run() error {
 	if err != nil {
 		return err
 	}
-	repo := repo.New(pDb)
+	// repo := repo.New(pDb)
 
 	_, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -31,11 +36,20 @@ func Run() error {
 		return loggerErr
 	}
 
-	service := task_service.New(repo, logger)
-	handler := task_handler.New(service)
+	userRepo := user_repo.NewUserRepo(pDb)
+	personalDataRepo := user_repo.NewPersonalDataRepo(pDb)
+	teamRepo := repo.NewTeamRepo(pDb)
+
+	txManager := db.NewTxManager(pDb)
+	userService := user.New(userRepo, personalDataRepo, teamRepo, logger, txManager)
+	userHandler := handler_user.New(userService)
+
+	// taskService := task_service.New(repo, logger)
+	// taskHandler := task_handler.New(service)
 
 	router := gin.Default()
 	router.Use(middleware.MockActorMiddleware())
-	task_handler.RegisterRoutes(router, handler)
+	handler_user.RegisterRoutes(router, userHandler)
+	// task_handler.RegisterRoutes(router, handler)
 	return router.RunTLS(":8080", "cert.pem", "key.pem")
 }

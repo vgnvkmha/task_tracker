@@ -1,6 +1,7 @@
 package user
 
 import (
+	"task_tracker/internal/application/user"
 	"time"
 )
 
@@ -13,4 +14,17 @@ type CreateRequest struct {
 	LastName  string     `json:"last_name" binding:"required"`
 	Age       *uint8     `json:"age"`
 	BirthDate *time.Time `json:"birth_date"`
+}
+
+func (r CreateRequest) ToServiceInput() user.CreateUserInput {
+	return user.CreateUserInput{
+		Email:     r.Email,
+		Password:  r.Password,
+		Role:      &r.Role,
+		TeamName:  r.TeamName,
+		FirstName: r.FirstName,
+		LastName:  r.LastName,
+		Age:       r.Age,
+		BirthDate: r.BirthDate,
+	}
 }
