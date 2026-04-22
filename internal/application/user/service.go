@@ -8,7 +8,7 @@ import (
 	personaldata "task_tracker/internal/domain/personal_data"
 	"task_tracker/internal/domain/user"
 	valueobjects "task_tracker/internal/domain/value_objects"
-	"task_tracker/internal/repo"
+	"task_tracker/internal/repo/team"
 	user_repo "task_tracker/internal/repo/user"
 
 	"github.com/google/uuid"
@@ -31,13 +31,13 @@ type UserService interface {
 type userService struct {
 	userRepo user_repo.UserRepo
 	dataRepo user_repo.PersonalDataRepo
-	teamRepo repo.TeamRepo
+	teamRepo team.TeamRepo
 
 	logger      *zap.SugaredLogger
 	transaction common.TxManager
 }
 
-func New(userRepo user_repo.UserRepo, dataRepo user_repo.PersonalDataRepo, teamRepo repo.TeamRepo, logger *zap.SugaredLogger, transaction common.TxManager) UserService {
+func New(userRepo user_repo.UserRepo, dataRepo user_repo.PersonalDataRepo, teamRepo team.TeamRepo, logger *zap.SugaredLogger, transaction common.TxManager) UserService {
 	return &userService{
 		userRepo: userRepo,
 		dataRepo: dataRepo,

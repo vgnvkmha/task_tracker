@@ -9,7 +9,6 @@ import (
 
 type User = user.User
 
-// TODO: remove User output
 type UserRepo interface {
 	Create(ctx context.Context, user User) (User, error)
 	Get(ctx context.Context, email string) (User, error)
@@ -32,7 +31,6 @@ func (r *userRepo) Create(ctx context.Context, user User) (User, error) {
 		VALUES ($1, $2, $3, $4, $5, $6)
 	`
 
-	// 👉 если есть транзакция — используем её
 	if tx, ok := db.GetTx(ctx); ok {
 		_, err := tx.ExecContext(
 			ctx,
@@ -50,7 +48,6 @@ func (r *userRepo) Create(ctx context.Context, user User) (User, error) {
 		return user, nil
 	}
 
-	// 👉 если нет — используем обычный db
 	_, err := r.db.ExecContext(
 		ctx,
 		query,

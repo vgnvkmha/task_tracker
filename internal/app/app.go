@@ -7,9 +7,9 @@ import (
 	"task_tracker/internal/configs"
 	"task_tracker/internal/domain/logger"
 	"task_tracker/internal/infrastracture/db"
-	"task_tracker/internal/repo"
 
 	// task_handler "task_tracker/internal/handler/task"
+	"task_tracker/internal/repo/team"
 	user_repo "task_tracker/internal/repo/user"
 	"task_tracker/internal/transport/http/middleware"
 	handler_user "task_tracker/internal/transport/http/user"
@@ -38,7 +38,7 @@ func Run() error {
 
 	userRepo := user_repo.NewUserRepo(pDb)
 	personalDataRepo := user_repo.NewPersonalDataRepo(pDb)
-	teamRepo := repo.NewTeamRepo(pDb)
+	teamRepo := team.NewTeamRepo(pDb)
 
 	txManager := db.NewTxManager(pDb)
 	userService := user.New(userRepo, personalDataRepo, teamRepo, logger, txManager)
