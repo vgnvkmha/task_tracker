@@ -28,7 +28,7 @@ type UserService interface {
 	Update(ctx context.Context, actor auth.Actor, userInput UpdateUserInput) (User, error)
 }
 
-type userService struct {
+type service struct {
 	userRepo user_repo.UserRepo
 	dataRepo user_repo.PersonalDataRepo
 	teamRepo team.TeamRepo
@@ -38,7 +38,7 @@ type userService struct {
 }
 
 func New(userRepo user_repo.UserRepo, dataRepo user_repo.PersonalDataRepo, teamRepo team.TeamRepo, logger *zap.SugaredLogger, transaction common.TxManager) UserService {
-	return &userService{
+	return &service{
 		userRepo: userRepo,
 		dataRepo: dataRepo,
 		teamRepo: teamRepo,
@@ -50,7 +50,7 @@ func New(userRepo user_repo.UserRepo, dataRepo user_repo.PersonalDataRepo, teamR
 	}
 }
 
-func (s *userService) CreateRegister(ctx context.Context, userInput CreateUserInput) (User, error) {
+func (s *service) CreateRegister(ctx context.Context, userInput CreateUserInput) (User, error) {
 	var u User
 	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
 		var teamID uuid.UUID = uuid.Nil
@@ -107,7 +107,7 @@ func (s *userService) CreateRegister(ctx context.Context, userInput CreateUserIn
 	return u, nil
 }
 
-func (s *userService) CreateByActor(ctx context.Context, actor auth.Actor, userInput CreateUserInput) (User, error) {
+func (s *service) CreateByActor(ctx context.Context, actor auth.Actor, userInput CreateUserInput) (User, error) {
 	var u User
 	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
 		var teamID uuid.UUID = uuid.Nil
@@ -164,7 +164,7 @@ func (s *userService) CreateByActor(ctx context.Context, actor auth.Actor, userI
 	return u, nil
 }
 
-func (s *userService) Update(ctx context.Context, actor auth.Actor, userInput UpdateUserInput) (User, error) {
+func (s *service) Update(ctx context.Context, actor auth.Actor, userInput UpdateUserInput) (User, error) {
 	var updatedUser User
 
 	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {

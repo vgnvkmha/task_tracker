@@ -13,6 +13,7 @@ type User struct {
 	Password       valueobjects.Password
 	Role           valueobjects.Role
 	PersonalDataID uuid.UUID
+	IsActive       bool
 }
 
 func New(teamId, personalDataId uuid.UUID, emailRaw, passwordRaw, roleRaw string) (*User, error) {
@@ -47,6 +48,7 @@ func New(teamId, personalDataId uuid.UUID, emailRaw, passwordRaw, roleRaw string
 		Password:       password,
 		Role:           role,
 		PersonalDataID: personalDataId,
+		IsActive:       true,
 	}
 
 	return user, nil

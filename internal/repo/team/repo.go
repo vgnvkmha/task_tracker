@@ -13,15 +13,15 @@ import (
 type Team = team.Team
 
 type TeamRepo interface {
-	Create(ctx context.Context, team Team) (Team, error)
+	Create(ctx context.Context, team Team) (*Team, error)
 
-	GetByID(ctx context.Context, id uuid.UUID) (Team, error)
-	GetByName(ctx context.Context, name string) (Team, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*Team, error)
+	GetByName(ctx context.Context, name string) (*Team, error)
 
-	ListActive(ctx context.Context) ([]Team, error)
-	List(ctx context.Context) ([]Team, error)
+	ListActive(ctx context.Context) ([]*Team, error)
+	List(ctx context.Context) ([]*Team, error)
 
-	Update(ctx context.Context, team Team) (Team, error)
+	Update(ctx context.Context, team Team) (*Team, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 }
 
@@ -35,7 +35,7 @@ func NewTeamRepo(db *sql.DB) TeamRepo {
 	}
 }
 
-func (r *teamRepo) Create(ctx context.Context, team Team) (Team, error) {
+func (r *teamRepo) Create(ctx context.Context, team Team) (*Team, error) {
 	const query = `
 		INSERT INTO teams (id, name, timezone, leader_id, is_active)
 		VALUES ($1, $2, $3, $4, $5)
@@ -53,9 +53,9 @@ func (r *teamRepo) Create(ctx context.Context, team Team) (Team, error) {
 			team.IsActive,
 		)
 		if err != nil {
-			return Team{}, err
+			return nil, err
 		}
-		return team, nil
+		return &team, nil
 
 	}
 	_, err := r.db.ExecContext(
@@ -68,13 +68,13 @@ func (r *teamRepo) Create(ctx context.Context, team Team) (Team, error) {
 		team.IsActive,
 	)
 	if err != nil {
-		return Team{}, err
+		return nil, err
 	}
 
-	return team, nil
+	return &team, nil
 }
 
-func (r *teamRepo) GetByID(ctx context.Context, id uuid.UUID) (Team, error) {
+func (r *teamRepo) GetByID(ctx context.Context, id uuid.UUID) (*Team, error) {
 	var team Team
 	const query = `
 		SELECT *
@@ -95,9 +95,9 @@ func (r *teamRepo) GetByID(ctx context.Context, id uuid.UUID) (Team, error) {
 			&team.IsActive,
 		)
 		if err != nil {
-			return Team{}, err
+			return nil, err
 		}
-		return team, nil
+		return &team, nil
 	}
 	err := r.db.QueryRowContext(
 		ctx,
@@ -111,13 +111,13 @@ func (r *teamRepo) GetByID(ctx context.Context, id uuid.UUID) (Team, error) {
 		&team.IsActive,
 	)
 	if err != nil {
-		return Team{}, err
+		return nil, err
 	}
-	return team, nil
+	return &team, nil
 
 }
 
-func (r *teamRepo) GetByName(ctx context.Context, teamName string) (Team, error) {
+func (r *teamRepo) GetByName(ctx context.Context, teamName string) (*Team, error) {
 	var team Team
 
 	query := `
@@ -138,9 +138,9 @@ func (r *teamRepo) GetByName(ctx context.Context, teamName string) (Team, error)
 			&team.LeaderID,
 		)
 		if err != nil {
-			return Team{}, err
+			return nil, err
 		}
-		return team, nil
+		return &team, nil
 	}
 
 	err := r.db.QueryRowContext(
@@ -155,14 +155,14 @@ func (r *teamRepo) GetByName(ctx context.Context, teamName string) (Team, error)
 	)
 
 	if err != nil {
-		return Team{}, err
+		return nil, err
 	}
 
-	return team, nil
+	return &team, nil
 
 }
 
-func (r *teamRepo) ListActive(ctx context.Context) ([]Team, error) {
+func (r *teamRepo) ListActive(ctx context.Context) ([]*Team, error) {
 	const query = `
         SELECT id, name, timezone, leader_id
         FROM teams
@@ -185,7 +185,7 @@ func (r *teamRepo) ListActive(ctx context.Context) ([]Team, error) {
 	}
 	defer rows.Close()
 
-	var teams []Team
+	var teams []*Team
 
 	for rows.Next() {
 		var t Team
@@ -200,7 +200,7 @@ func (r *teamRepo) ListActive(ctx context.Context) ([]Team, error) {
 			return nil, err
 		}
 
-		teams = append(teams, t)
+		teams = append(teams, &t)
 	}
 
 	if err := rows.Err(); err != nil {
@@ -210,7 +210,7 @@ func (r *teamRepo) ListActive(ctx context.Context) ([]Team, error) {
 	return teams, nil
 }
 
-func (r *teamRepo) List(ctx context.Context) ([]Team, error) {
+func (r *teamRepo) List(ctx context.Context) ([]*Team, error) {
 	const query = `
         SELECT id, name, timezone, leader_id
         FROM teams
@@ -232,7 +232,7 @@ func (r *teamRepo) List(ctx context.Context) ([]Team, error) {
 	}
 	defer rows.Close()
 
-	var teams []Team
+	var teams []*Team
 
 	for rows.Next() {
 		var t Team
@@ -247,7 +247,7 @@ func (r *teamRepo) List(ctx context.Context) ([]Team, error) {
 			return nil, err
 		}
 
-		teams = append(teams, t)
+		teams = append(teams, &t)
 	}
 
 	if err := rows.Err(); err != nil {
@@ -257,7 +257,7 @@ func (r *teamRepo) List(ctx context.Context) ([]Team, error) {
 	return teams, nil
 }
 
-func (r *teamRepo) Update(ctx context.Context, team Team) (Team, error) {
+func (r *teamRepo) Update(ctx context.Context, team Team) (*Team, error) {
 	const query = `
 		UPDATE teams
 		SET
@@ -290,9 +290,9 @@ func (r *teamRepo) Update(ctx context.Context, team Team) (Team, error) {
 		)
 	}
 	if err != nil {
-		return Team{}, err
+		return nil, err
 	}
-	return team, nil
+	return &team, nil
 }
 
 func (r *teamRepo) Delete(ctx context.Context, id uuid.UUID) error {

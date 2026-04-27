@@ -5,14 +5,18 @@ import (
 	"database/sql"
 	"task_tracker/internal/domain/user"
 	"task_tracker/internal/infrastracture/db"
+
+	"github.com/google/uuid"
 )
 
 type User = user.User
 
 type UserRepo interface {
-	Create(ctx context.Context, user User) (User, error)
-	Get(ctx context.Context, email string) (User, error)
-	Update(ctx context.Context, user User) (User, error)
+	Create(ctx context.Context, user User) (*User, error)
+
+	GetByEmail(ctx context.Context, email string) (*User, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*User, error)
+	Update(ctx context.Context, user User) (*User, error)
 }
 
 type userRepo struct {
@@ -25,7 +29,7 @@ func NewUserRepo(db *sql.DB) UserRepo {
 	}
 }
 
-func (r *userRepo) Create(ctx context.Context, user User) (User, error) {
+func (r *userRepo) Create(ctx context.Context, user User) (*User, error) {
 	const query = `
 		INSERT INTO users (id, team_id, email, password, role, personal_data_id)
 		VALUES ($1, $2, $3, $4, $5, $6)
@@ -43,9 +47,9 @@ func (r *userRepo) Create(ctx context.Context, user User) (User, error) {
 			user.PersonalDataID,
 		)
 		if err != nil {
-			return User{}, err
+			return nil, err
 		}
-		return user, nil
+		return &user, nil
 	}
 
 	_, err := r.db.ExecContext(
@@ -59,13 +63,13 @@ func (r *userRepo) Create(ctx context.Context, user User) (User, error) {
 		user.PersonalDataID,
 	)
 	if err != nil {
-		return User{}, err
+		return nil, err
 	}
 
-	return user, nil
+	return &user, nil
 }
 
-func (r *userRepo) Get(ctx context.Context, email string) (User, error) {
+func (r *userRepo) GetByEmail(ctx context.Context, email string) (*User, error) {
 	var user User
 
 	query := `
@@ -84,12 +88,36 @@ func (r *userRepo) Get(ctx context.Context, email string) (User, error) {
 	)
 
 	if err != nil {
-		return User{}, err
+		return nil, err
 	}
-	return user, nil
+	return &user, nil
 }
 
-func (r *userRepo) Update(ctx context.Context, user User) (User, error) {
+func (r *userRepo) GetByID(ctx context.Context, id uuid.UUID) (*User, error) {
+	var user User
+
+	query := `
+		SELECT *
+		FROM users
+		WHERE id = $1
+	`
+
+	err := r.db.QueryRowContext(ctx, query, id).Scan(
+		&user.ID,
+		&user.TeamID,
+		&user.Email,
+		&user.Password,
+		&user.Role,
+		&user.PersonalDataID,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (r *userRepo) Update(ctx context.Context, user User) (*User, error) {
 	//TODO: troubles are possible
 	const query = `
 		UPDATE users
@@ -114,8 +142,8 @@ func (r *userRepo) Update(ctx context.Context, user User) (User, error) {
 	)
 
 	if err != nil {
-		return User{}, err
+		return nil, err
 	}
 
-	return user, nil
+	return &user, nil
 }
