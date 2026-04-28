@@ -23,9 +23,9 @@ const (
 type User = user.User
 
 type UserService interface {
-	CreateRegister(ctx context.Context, userInput CreateUserInput) (User, error)
-	CreateByActor(ctx context.Context, actor auth.Actor, userInput CreateUserInput) (User, error)
-	Update(ctx context.Context, actor auth.Actor, userInput UpdateUserInput) (User, error)
+	CreateRegister(ctx context.Context, userInput CreateUserInput) (*User, error)
+	CreateByActor(ctx context.Context, actor auth.Actor, userInput CreateUserInput) (*User, error)
+	Update(ctx context.Context, actor auth.Actor, userInput UpdateUserInput) (*User, error)
 }
 
 type service struct {
@@ -50,8 +50,8 @@ func New(userRepo user_repo.UserRepo, dataRepo user_repo.PersonalDataRepo, teamR
 	}
 }
 
-func (s *service) CreateRegister(ctx context.Context, userInput CreateUserInput) (User, error) {
-	var u User
+func (s *service) CreateRegister(ctx context.Context, userInput CreateUserInput) (*User, error) {
+	var u *User
 	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
 		var teamID uuid.UUID = uuid.Nil
 
@@ -101,14 +101,14 @@ func (s *service) CreateRegister(ctx context.Context, userInput CreateUserInput)
 	})
 
 	if err != nil {
-		return User{}, err
+		return nil, err
 	}
 
 	return u, nil
 }
 
-func (s *service) CreateByActor(ctx context.Context, actor auth.Actor, userInput CreateUserInput) (User, error) {
-	var u User
+func (s *service) CreateByActor(ctx context.Context, actor auth.Actor, userInput CreateUserInput) (*User, error) {
+	var u *User
 	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
 		var teamID uuid.UUID = uuid.Nil
 		actorRole := valueobjects.Role(actor.Role)
@@ -158,18 +158,18 @@ func (s *service) CreateByActor(ctx context.Context, actor auth.Actor, userInput
 	})
 
 	if err != nil {
-		return User{}, err
+		return nil, err
 	}
 
 	return u, nil
 }
 
-func (s *service) Update(ctx context.Context, actor auth.Actor, userInput UpdateUserInput) (User, error) {
-	var updatedUser User
+func (s *service) Update(ctx context.Context, actor auth.Actor, userInput UpdateUserInput) (*User, error) {
+	var updatedUser *User
 
 	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
 
-		existingUser, err := s.userRepo.Get(ctx, *userInput.Email)
+		existingUser, err := s.userRepo.GetByEmail(ctx, *userInput.Email)
 		if err != nil {
 			return ErrUserNotFound
 		}
@@ -232,7 +232,7 @@ func (s *service) Update(ctx context.Context, actor auth.Actor, userInput Update
 			return ErrInvalidRole
 		}
 
-		savedUser, err := s.userRepo.Update(ctx, existingUser)
+		savedUser, err := s.userRepo.Update(ctx, *existingUser)
 		if err != nil {
 			return ErrUserUpdateFailed
 		}
@@ -242,7 +242,7 @@ func (s *service) Update(ctx context.Context, actor auth.Actor, userInput Update
 	})
 
 	if err != nil {
-		return User{}, err
+		return nil, err
 	}
 
 	return updatedUser, nil

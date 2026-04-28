@@ -53,7 +53,7 @@ func (h *handler) CreateRegister(ctx *gin.Context) {
 			return
 		}
 	}
-	response := FromService(user)
+	response := FromService(*user)
 	ctx.JSON(http.StatusOK, response)
 }
 
@@ -86,7 +86,7 @@ func (h *handler) CreateByActor(ctx *gin.Context) {
 		})
 		return
 	}
-	response := FromService(user)
+	response := FromService(*user)
 	ctx.JSON(http.StatusOK, response)
 }
 
@@ -120,7 +120,7 @@ func (h *handler) Update(ctx *gin.Context) {
 		})
 		return
 	}
-	response := FromService(updatedUser)
+	response := FromService(*updatedUser)
 	ctx.JSON(http.StatusOK, response)
 
 }
