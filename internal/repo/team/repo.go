@@ -3,9 +3,10 @@ package team
 import (
 	"context"
 	"database/sql"
-	"errors"
+	"task_tracker/internal/common_errors"
 	"task_tracker/internal/domain/team"
 	"task_tracker/internal/infrastracture/db"
+	"task_tracker/internal/repo/dberrors"
 
 	"github.com/google/uuid"
 )
@@ -17,6 +18,7 @@ type TeamRepo interface {
 
 	GetByID(ctx context.Context, id uuid.UUID) (*Team, error)
 	GetByName(ctx context.Context, name string) (*Team, error)
+	GetByLeaderID(ctx context.Context, id uuid.UUID) (*Team, error)
 
 	ListActive(ctx context.Context) ([]*Team, error)
 	List(ctx context.Context) ([]*Team, error)
@@ -68,7 +70,7 @@ func (r *teamRepo) Create(ctx context.Context, team Team) (*Team, error) {
 		team.IsActive,
 	)
 	if err != nil {
-		return nil, err
+		return nil, dberrors.Map(err)
 	}
 
 	return &team, nil
@@ -95,7 +97,7 @@ func (r *teamRepo) GetByID(ctx context.Context, id uuid.UUID) (*Team, error) {
 			&team.IsActive,
 		)
 		if err != nil {
-			return nil, err
+			return nil, dberrors.Map(err)
 		}
 		return &team, nil
 	}
@@ -138,7 +140,7 @@ func (r *teamRepo) GetByName(ctx context.Context, teamName string) (*Team, error
 			&team.LeaderID,
 		)
 		if err != nil {
-			return nil, err
+			return nil, dberrors.Map(err)
 		}
 		return &team, nil
 	}
@@ -155,7 +157,52 @@ func (r *teamRepo) GetByName(ctx context.Context, teamName string) (*Team, error
 	)
 
 	if err != nil {
-		return nil, err
+		return nil, dberrors.Map(err)
+	}
+
+	return &team, nil
+
+}
+
+func (r *teamRepo) GetByLeaderID(ctx context.Context, id uuid.UUID) (*Team, error) {
+	var team Team
+
+	query := `
+		SELECT *
+		FROM teams
+		WHERE leader_id = $1
+	`
+
+	if tx, ok := db.GetTx(ctx); ok {
+		err := tx.QueryRowContext(
+			ctx,
+			query,
+			id,
+		).Scan(
+			&team.ID,
+			&team.Name,
+			&team.Timezone,
+			&team.LeaderID,
+		)
+		if err != nil {
+			return nil, dberrors.Map(err)
+		}
+		return &team, nil
+	}
+
+	err := r.db.QueryRowContext(
+		ctx,
+		query,
+		id,
+	).Scan(
+		&team.ID,
+		&team.Name,
+		&team.Timezone,
+		&team.LeaderID,
+	)
+
+	if err != nil {
+		return nil, dberrors.Map(err)
 	}
 
 	return &team, nil
@@ -197,14 +244,14 @@ func (r *teamRepo) ListActive(ctx context.Context) ([]*Team, error) {
 			&t.LeaderID,
 		)
 		if err != nil {
-			return nil, err
+			return nil, dberrors.Map(err)
 		}
 
 		teams = append(teams, &t)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, dberrors.Map(err)
 	}
 
 	return teams, nil
@@ -228,7 +275,7 @@ func (r *teamRepo) List(ctx context.Context) ([]*Team, error) {
 	}
 
 	if err != nil {
-		return nil, err
+		return nil, dberrors.Map(err)
 	}
 	defer rows.Close()
 
@@ -244,14 +291,14 @@ func (r *teamRepo) List(ctx context.Context) ([]*Team, error) {
 			&t.LeaderID,
 		)
 		if err != nil {
-			return nil, err
+			return nil, dberrors.Map(err)
 		}
 
 		teams = append(teams, &t)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, dberrors.Map(err)
 	}
 
 	return teams, nil
@@ -290,7 +337,7 @@ func (r *teamRepo) Update(ctx context.Context, team Team) (*Team, error) {
 		)
 	}
 	if err != nil {
-		return nil, err
+		return nil, dberrors.Map(err)
 	}
 	return &team, nil
 }
@@ -314,16 +361,16 @@ func (r *teamRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	}
 
 	if err != nil {
-		return err
+		return dberrors.Map(err)
 	}
 
 	rowsAffected, err := res.RowsAffected()
 	if err != nil {
-		return err
+		return dberrors.Map(err)
 	}
 
 	if rowsAffected == 0 {
-		return errors.New("team not found")
+		return common_errors.ErrNotFound
 	}
 
 	return nil

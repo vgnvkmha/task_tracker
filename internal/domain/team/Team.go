@@ -10,11 +10,16 @@ type Team struct {
 	ID       uuid.UUID
 	Name     string
 	Timezone string
-	LeaderID uuid.UUID
+	LeaderID *uuid.UUID
 	IsActive bool
 }
 
 func New(name string, timezone *string, leaderID *uuid.UUID) (*Team, error) {
+	var tz string
+	if timezone != nil {
+		tz = *timezone
+	}
+
 	if name == "" {
 		return nil, ErrEmptyName
 	}
@@ -28,7 +33,7 @@ func New(name string, timezone *string, leaderID *uuid.UUID) (*Team, error) {
 	return &Team{
 		ID:       uuid.New(),
 		Name:     name,
-		Timezone: timezone,
+		Timezone: tz,
 		LeaderID: leaderID,
 		IsActive: true,
 	}, nil

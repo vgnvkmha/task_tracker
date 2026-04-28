@@ -5,7 +5,7 @@ import (
 	"database/sql"
 )
 
-// in order not to create key anytime
+// in order not to create key everytime
 type txKeyType struct{}
 
 var txKey = txKeyType{}
@@ -24,7 +24,9 @@ func GetTx(ctx context.Context) (*sql.Tx, bool) {
 }
 
 func (m *TxManager) WithTx(ctx context.Context, fn func(ctx context.Context) error) error {
-	tx, err := m.db.BeginTx(ctx, nil)
+	tx, err := m.db.BeginTx(ctx, &sql.TxOptions{
+		Isolation: sql.LevelRepeatableRead,
+	})
 	if err != nil {
 		return err
 	}
