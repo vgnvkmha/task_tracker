@@ -2,7 +2,6 @@ package user
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	user_application "task_tracker/internal/application/user"
 	"task_tracker/internal/transport/http/middleware"
@@ -34,7 +33,6 @@ func (h *handler) CreateRegister(ctx *gin.Context) {
 		})
 		return
 	}
-	fmt.Printf("TeamName: %#v\n", input.TeamName)
 	inputModel := input.ToServiceInput()
 
 	user, err := h.service.CreateRegister(ctx.Request.Context(), inputModel)
@@ -53,7 +51,7 @@ func (h *handler) CreateRegister(ctx *gin.Context) {
 			return
 		}
 	}
-	response := FromService(*user)
+	response := FromDomain(*user)
 	ctx.JSON(http.StatusOK, response)
 }
 
@@ -86,7 +84,7 @@ func (h *handler) CreateByActor(ctx *gin.Context) {
 		})
 		return
 	}
-	response := FromService(*user)
+	response := FromDomain(*user)
 	ctx.JSON(http.StatusOK, response)
 }
 
@@ -120,7 +118,7 @@ func (h *handler) Update(ctx *gin.Context) {
 		})
 		return
 	}
-	response := FromService(*updatedUser)
+	response := FromDomain(*updatedUser)
 	ctx.JSON(http.StatusOK, response)
 
 }

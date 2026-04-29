@@ -15,7 +15,7 @@ type Response struct {
 	PersonalDataID uuid.UUID          `json:"personal_data_id"`
 }
 
-func FromService(user user.User) Response {
+func FromDomain(user user.User) Response {
 	return Response{
 		ID:             user.ID,
 		Email:          user.Email,

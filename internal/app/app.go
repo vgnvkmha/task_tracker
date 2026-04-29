@@ -9,9 +9,11 @@ import (
 	"task_tracker/internal/infrastracture/db"
 
 	// task_handler "task_tracker/internal/handler/task"
+	team_application "task_tracker/internal/application/team"
 	"task_tracker/internal/repo/team"
 	user_repo "task_tracker/internal/repo/user"
 	"task_tracker/internal/transport/http/middleware"
+	team_handler "task_tracker/internal/transport/http/team"
 	handler_user "task_tracker/internal/transport/http/user"
 
 	"github.com/gin-gonic/gin"
@@ -44,12 +46,15 @@ func Run() error {
 	userService := user.New(userRepo, personalDataRepo, teamRepo, logger, txManager)
 	userHandler := handler_user.New(userService)
 
+	teamService := team_application.New(teamRepo, userRepo, logger, txManager)
+	teamHandler := team_handler.New(teamService)
 	// taskService := task_service.New(repo, logger)
 	// taskHandler := task_handler.New(service)
 
 	router := gin.Default()
 	router.Use(middleware.MockActorMiddleware())
 	handler_user.RegisterRoutes(router, userHandler)
+	team_handler.RegisterRoutes(router, teamHandler)
 	// task_handler.RegisterRoutes(router, handler)
 	return router.RunTLS(":8080", "cert.pem", "key.pem")
 }
