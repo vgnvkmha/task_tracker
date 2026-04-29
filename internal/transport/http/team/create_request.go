@@ -12,13 +12,14 @@ type CreateTeamRequest struct {
 	Timezone *string `json:"timezone"`
 	LeaderID *string `json:"leader_id"`
 }
+
 type applicationTeam = team.CreateTeamInput
 
-func ToServiceInput(input CreateTeamRequest) (*applicationTeam, error) {
+func NewApplicationTeam(req CreateTeamRequest) (*applicationTeam, error) {
 	var leaderID *uuid.UUID
 
-	if input.LeaderID != nil {
-		id, err := uuid.Parse(*input.LeaderID)
+	if req.LeaderID != nil {
+		id, err := uuid.Parse(*req.LeaderID)
 		if err != nil {
 			return nil, common_errors.ErrInvalidID
 		}
@@ -26,8 +27,8 @@ func ToServiceInput(input CreateTeamRequest) (*applicationTeam, error) {
 	}
 
 	return &applicationTeam{
-		Name:     input.Name,
-		Timezone: input.Timezone,
+		Name:     req.Name,
+		Timezone: req.Timezone,
 		LeaderID: leaderID,
 	}, nil
 }

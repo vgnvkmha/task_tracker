@@ -10,7 +10,7 @@ type Response struct {
 	LeaderID *string `json:"leader_id"`
 }
 
-func FromDomain(team *team.Team) *Response {
+func NewResponse(team *team.Team) *Response {
 	var (
 		timezone *string
 		leaderID *string
@@ -31,4 +31,12 @@ func FromDomain(team *team.Team) *Response {
 		Timezone: timezone,
 		LeaderID: leaderID,
 	}
+}
+
+func NewResponses(teams []*team.Team) []*Response {
+	var response []*Response
+	for _, v := range teams {
+		response = append(response, NewResponse(v))
+	}
+	return response
 }

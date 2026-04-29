@@ -23,7 +23,7 @@ type TeamRepo interface {
 	ListActive(ctx context.Context) ([]*Team, error)
 	List(ctx context.Context) ([]*Team, error)
 
-	Update(ctx context.Context, team Team) (*Team, error)
+	Update(ctx context.Context, id uuid.UUID, team Team) (*Team, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 }
 
@@ -304,7 +304,7 @@ func (r *teamRepo) List(ctx context.Context) ([]*Team, error) {
 	return teams, nil
 }
 
-func (r *teamRepo) Update(ctx context.Context, team Team) (*Team, error) {
+func (r *teamRepo) Update(ctx context.Context, id uuid.UUID, team Team) (*Team, error) {
 	const query = `
 		UPDATE teams
 		SET
@@ -323,7 +323,7 @@ func (r *teamRepo) Update(ctx context.Context, team Team) (*Team, error) {
 			team.Timezone,
 			team.LeaderID,
 			team.IsActive,
-			team.ID,
+			id,
 		)
 	} else {
 		_, err = r.db.ExecContext(

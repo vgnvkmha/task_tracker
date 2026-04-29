@@ -25,7 +25,7 @@ type TeamService interface {
 	ListActive(ctx context.Context) ([]*Team, error)
 	List(ctx context.Context) ([]*Team, error)
 
-	Update(ctx context.Context, input UpdateTeamInput) (*Team, error)
+	Update(ctx context.Context, id uuid.UUID, input *UpdateTeamInput) (*Team, error)
 	DeleteByID(ctx context.Context, id uuid.UUID) error
 }
 
@@ -155,14 +155,10 @@ func (s *service) List(ctx context.Context) ([]*Team, error) {
 	return result, nil
 }
 
-func (s *service) Update(ctx context.Context, input UpdateTeamInput) (*Team, error) {
+func (s *service) Update(ctx context.Context, id uuid.UUID, input *UpdateTeamInput) (*Team, error) {
 	var result *Team
 	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
-		domainTeam, err := domain_team.New(*input.Name, input.Timezone, input.LeaderID)
-		if err != nil {
-			return err
-		}
-		_, err = s.teamRepo.GetByName(ctx, *input.Name)
+		domainTeam, err := s.teamRepo.GetByID(ctx, id)
 		if err != nil {
 			return mapGetError(err)
 		}
@@ -172,8 +168,8 @@ func (s *service) Update(ctx context.Context, input UpdateTeamInput) (*Team, err
 				return mapGetError(err)
 			}
 		}
-
-		team, err := s.teamRepo.Update(ctx, *domainTeam)
+		domainTeam.ApplyChanges(input.Name, input.Timezone, input.LeaderID, input.IsActive)
+		team, err := s.teamRepo.Update(ctx, id, *domainTeam)
 		if err != nil {
 			return mapGetError(err)
 		}
