@@ -1,6 +1,10 @@
 package team
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+	"task_tracker/internal/domain/team"
+)
 
 var (
 	// Team
@@ -19,3 +23,20 @@ var (
 	// Generic service layer
 	ErrInvalidInput = errors.New("invalid input")
 )
+
+func mapDomainError(err error) error {
+	switch {
+	case errors.Is(err, team.ErrInvalidTZ):
+		return fmt.Errorf("invalid timezone: %w", ErrInvalidInput)
+
+	case errors.Is(err, team.ErrInvalidLeaderID):
+		return fmt.Errorf("invalid leader ID: %w", ErrInvalidInput)
+
+	case errors.Is(err, team.ErrEmptyName):
+		return fmt.Errorf("empty name: %w", ErrInvalidInput)
+	case errors.Is(err, team.ErrNameTooLong):
+		return fmt.Errorf("name too long: %w", ErrInvalidInput)
+	default:
+		return err
+	}
+}

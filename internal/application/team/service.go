@@ -40,7 +40,12 @@ type service struct {
 func New(teamRepo team.TeamRepo, userRepo user_repo.UserRepo,
 	logger *zap.SugaredLogger,
 	transaction common.TxManager) TeamService {
-	return &service{}
+	return &service{
+		teamRepo:    teamRepo,
+		userRepo:    userRepo,
+		logger:      logger,
+		transaction: transaction,
+	}
 }
 
 func (s *service) Create(ctx context.Context, input CreateTeamInput) (*Team, error) {
@@ -263,6 +268,10 @@ func mapCreateError(err error) error {
 		return ErrPermissionDenied
 	case errors.Is(err, common_errors.ErrAlreadyExists):
 		return ErrTeamAlreadyExists
+	case errors.Is(err, common_errors.ErrConflict):
+		return team.ErrConflict
+	case errors.Is(err, common_errors.ErrInvalidID):
+		return team.ErrInvalidLeader
 	default:
 		return err
 	}
@@ -272,8 +281,6 @@ func mapGetError(err error) error {
 	switch {
 	case errors.Is(err, common_errors.ErrNotFound):
 		return common_errors.ErrNotFound
-	case errors.Is(err, common_errors.ErrConflict):
-		return common_errors.ErrConflict
 	case errors.Is(err, common_errors.ErrInvalidID):
 		return common_errors.ErrInvalidID
 	case errors.Is(err, common_errors.ErrPermissionDenied):
@@ -291,8 +298,8 @@ func mapUpdateError(err error) error {
 	case errors.Is(err, common_errors.ErrNotFound):
 		return ErrTeamNotFound
 
-	case errors.Is(err, common_errors.ErrAlreadyExists):
-		return ErrTeamAlreadyExists
+	case errors.Is(err, common_errors.ErrConflict):
+		return team.ErrConflict
 
 	case errors.Is(err, common_errors.ErrInvalidArgument):
 		return ErrInvalidInput

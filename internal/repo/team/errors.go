@@ -4,8 +4,10 @@ import "errors"
 
 var (
 	// general
-	ErrNotFound      = errors.New("team not found")
-	ErrAlreadyExists = errors.New("team already exists")
+	ErrNotFound          = errors.New("team not found")
+	ErrAlreadyExists     = errors.New("team already exists")
+	ErrConflict          = errors.New("team with this leader already exists")
+	ErrPersmissionDenied = errors.New("permission denied")
 
 	// validation
 	ErrEmptyName   = errors.New("team name must be provided")

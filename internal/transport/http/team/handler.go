@@ -70,7 +70,7 @@ func (h *handler) GetByID(c *gin.Context) {
 	uuid, err := uuid.Parse(id)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": common_errors.ErrInvalidID,
+			"error": common_errors.ErrInvalidID.Error(),
 		})
 		return
 	}
@@ -78,9 +78,8 @@ func (h *handler) GetByID(c *gin.Context) {
 
 	team, err := h.service.GetByID(ctx, uuid)
 	if err != nil {
-		status, msg := mapError(err)
-		c.JSON(status, gin.H{
-			"error": msg,
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
 		})
 		return
 	}
