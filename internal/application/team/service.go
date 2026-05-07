@@ -217,7 +217,7 @@ func (s *service) ensureTeamNameUnique(ctx context.Context, name string) error {
 			"error", err,
 			"name", name,
 		)
-		return err
+		return common_errors.ErrUnexpected
 	}
 	if existing != nil {
 		return ErrTeamAlreadyExists
@@ -239,7 +239,7 @@ func (s *service) validateLeader(ctx context.Context, leaderID *uuid.UUID, teamN
 			"error", err,
 			"leader_id", leaderID,
 		)
-		return err
+		return common_errors.ErrInvalidArgument
 	}
 
 	if !leader.IsActive {
@@ -247,13 +247,15 @@ func (s *service) validateLeader(ctx context.Context, leaderID *uuid.UUID, teamN
 	}
 
 	team, err := s.teamRepo.GetByLeaderID(ctx, *leaderID)
-	if err != nil && !errors.Is(err, common_errors.ErrNotFound) {
-		s.logger.Errorw("failed to get team by leader id",
-			"error", err,
-			"leader_id", leaderID,
-			"team_name", teamName,
-		)
-		return err
+	if err != nil {
+		if !errors.Is(err, common_errors.ErrNotFound) {
+			s.logger.Errorw("failed to get team by leader id",
+				"error", err,
+				"leader_id", leaderID,
+				"team_name", teamName,
+			)
+			return ErrInvalidInput
+		}
 	}
 	if team != nil {
 		return ErrLeaderAlreadyHasTeam

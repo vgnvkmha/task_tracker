@@ -37,15 +37,15 @@ func (h *handler) Create(c *gin.Context) {
 
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": common_errors.ErrBadRequest,
+			"error": common_errors.ErrBadRequest.Error(),
 		})
 		return
 	}
 
 	appInput, err := NewApplicationTeam(input)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": common_errors.ErrBadRequest,
+		c.JSON(http.StatusUnprocessableEntity, gin.H{
+			"error": err.Error(),
 		})
 		return
 	}
@@ -78,8 +78,9 @@ func (h *handler) GetByID(c *gin.Context) {
 
 	team, err := h.service.GetByID(ctx, uuid)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
+		status, msg := mapError(err)
+		c.JSON(status, gin.H{
+			"error": msg,
 		})
 		return
 	}
@@ -148,7 +149,7 @@ func (h *handler) Update(c *gin.Context) {
 	team_id := c.Param("id")
 	id, err := uuid.Parse(team_id)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
+		c.JSON(http.StatusUnprocessableEntity, gin.H{
 			"error": common_errors.ErrInvalidID,
 		})
 		return
@@ -164,7 +165,7 @@ func (h *handler) Update(c *gin.Context) {
 
 	input, err := ApplyUpdateTeam(req)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
+		c.JSON(http.StatusUnprocessableEntity, gin.H{
 			"error": err,
 		})
 		return
@@ -189,7 +190,7 @@ func (h *handler) DeleteByID(c *gin.Context) {
 	team_id := c.Param("id")
 	uuid, err := uuid.Parse(team_id)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
+		c.JSON(http.StatusUnprocessableEntity, gin.H{
 			"error": common_errors.ErrInvalidID,
 		})
 		return

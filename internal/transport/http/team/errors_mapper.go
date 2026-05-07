@@ -22,7 +22,7 @@ func mapError(err error) (int, string) {
 
 	// Leader / User
 	case errors.Is(err, team.ErrLeaderNotFound):
-		return http.StatusBadRequest, "leader not found"
+		return http.StatusNotFound, "leader not found"
 
 	case errors.Is(err, team.ErrLeaderInactive):
 		return http.StatusBadRequest, "leader inactive"

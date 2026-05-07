@@ -138,6 +138,7 @@ func (r *teamRepo) GetByName(ctx context.Context, teamName string) (*Team, error
 			&team.Name,
 			&team.Timezone,
 			&team.LeaderID,
+			&team.IsActive,
 		)
 		if err != nil {
 			return nil, dberrors.Map(err)
