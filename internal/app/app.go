@@ -11,7 +11,7 @@ import (
 	// task_handler "task_tracker/internal/handler/task"
 	team_application "task_tracker/internal/application/team"
 	"task_tracker/internal/repo/team"
-	user_repo "task_tracker/internal/repo/user"
+	userRepo "task_tracker/internal/repo/user"
 	"task_tracker/internal/transport/http/middleware"
 	team_handler "task_tracker/internal/transport/http/team"
 	handler_user "task_tracker/internal/transport/http/user"
@@ -38,15 +38,15 @@ func Run() error {
 		return loggerErr
 	}
 
-	userRepo := user_repo.NewUserRepo(pDb)
-	personalDataRepo := user_repo.NewPersonalDataRepo(pDb)
+	usersRepo := userRepo.NewUserRepo(pDb)
+	personalDataRepo := userRepo.NewPersonalDataRepo(pDb)
 	teamRepo := team.NewTeamRepo(pDb)
 
 	txManager := db.NewTxManager(pDb)
-	userService := user.New(userRepo, personalDataRepo, teamRepo, logger, txManager)
+	userService := user.New(usersRepo, personalDataRepo, teamRepo, logger, txManager)
 	userHandler := handler_user.New(userService)
 
-	teamService := team_application.New(teamRepo, userRepo, logger, txManager)
+	teamService := team_application.New(teamRepo, usersRepo, logger, txManager)
 	teamHandler := team_handler.New(teamService)
 	// taskService := task_service.New(repo, logger)
 	// taskHandler := task_handler.New(service)

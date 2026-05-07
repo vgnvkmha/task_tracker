@@ -9,7 +9,7 @@ import (
 	"task_tracker/internal/domain/user"
 	valueobjects "task_tracker/internal/domain/value_objects"
 	"task_tracker/internal/repo/team"
-	user_repo "task_tracker/internal/repo/user"
+	userRepo "task_tracker/internal/repo/user"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -29,15 +29,15 @@ type UserService interface {
 }
 
 type service struct {
-	userRepo user_repo.UserRepo
-	dataRepo user_repo.PersonalDataRepo
+	userRepo userRepo.UserRepo
+	dataRepo userRepo.PersonalDataRepo
 	teamRepo team.TeamRepo
 
 	logger      *zap.SugaredLogger
 	transaction common.TxManager
 }
 
-func New(userRepo user_repo.UserRepo, dataRepo user_repo.PersonalDataRepo, teamRepo team.TeamRepo, logger *zap.SugaredLogger, transaction common.TxManager) UserService {
+func New(userRepo userRepo.UserRepo, dataRepo userRepo.PersonalDataRepo, teamRepo team.TeamRepo, logger *zap.SugaredLogger, transaction common.TxManager) UserService {
 	return &service{
 		userRepo: userRepo,
 		dataRepo: dataRepo,
@@ -232,7 +232,7 @@ func (s *service) Update(ctx context.Context, actor auth.Actor, userInput Update
 			return ErrInvalidRole
 		}
 
-		savedUser, err := s.userRepo.Update(ctx, *existingUser)
+		savedUser, err := s.userRepo.Update(ctx, existingUser.ID, *existingUser)
 		if err != nil {
 			return ErrUserUpdateFailed
 		}

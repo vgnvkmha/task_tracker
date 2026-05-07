@@ -6,7 +6,7 @@ import (
 	"task_tracker/internal/application/common"
 	"task_tracker/internal/common_errors"
 	"task_tracker/internal/repo/team"
-	user_repo "task_tracker/internal/repo/user"
+	userRepo "task_tracker/internal/repo/user"
 
 	domain_team "task_tracker/internal/domain/team"
 
@@ -31,13 +31,13 @@ type TeamService interface {
 
 type service struct {
 	teamRepo team.TeamRepo
-	userRepo user_repo.UserRepo
+	userRepo userRepo.UserRepo
 
 	logger      *zap.SugaredLogger
 	transaction common.TxManager
 }
 
-func New(teamRepo team.TeamRepo, userRepo user_repo.UserRepo,
+func New(teamRepo team.TeamRepo, userRepo userRepo.UserRepo,
 	logger *zap.SugaredLogger,
 	transaction common.TxManager) TeamService {
 	return &service{

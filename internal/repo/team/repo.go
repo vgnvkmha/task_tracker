@@ -55,7 +55,7 @@ func (r *teamRepo) Create(ctx context.Context, team Team) (*Team, error) {
 			team.IsActive,
 		)
 		if err != nil {
-			return nil, err
+			return nil, dberrors.Map(err)
 		}
 		return &team, nil
 
@@ -79,7 +79,7 @@ func (r *teamRepo) Create(ctx context.Context, team Team) (*Team, error) {
 func (r *teamRepo) GetByID(ctx context.Context, id uuid.UUID) (*Team, error) {
 	var team Team
 	const query = `
-		SELECT *
+		SELECT id, name, timezone, leader_id, is_active
 		FROM teams
 		WHERE id = $1
 	`
@@ -113,7 +113,7 @@ func (r *teamRepo) GetByID(ctx context.Context, id uuid.UUID) (*Team, error) {
 		&team.IsActive,
 	)
 	if err != nil {
-		return nil, err
+		return nil, dberrors.Map(err)
 	}
 	return &team, nil
 
@@ -122,8 +122,8 @@ func (r *teamRepo) GetByID(ctx context.Context, id uuid.UUID) (*Team, error) {
 func (r *teamRepo) GetByName(ctx context.Context, teamName string) (*Team, error) {
 	var team Team
 
-	query := `
-		SELECT *
+	const query = `
+		SELECT id, name, timezone, leader_id, is_active
 		FROM teams
 		WHERE name = $1
 	`
@@ -155,6 +155,7 @@ func (r *teamRepo) GetByName(ctx context.Context, teamName string) (*Team, error
 		&team.Name,
 		&team.Timezone,
 		&team.LeaderID,
+		&team.IsActive,
 	)
 
 	if err != nil {
@@ -168,8 +169,8 @@ func (r *teamRepo) GetByName(ctx context.Context, teamName string) (*Team, error
 func (r *teamRepo) GetByLeaderID(ctx context.Context, id uuid.UUID) (*Team, error) {
 	var team Team
 
-	query := `
-		SELECT *
+	const query = `
+		SELECT id, name, timezone, leader_id, is_active
 		FROM teams
 		WHERE leader_id = $1
 	`
@@ -184,6 +185,7 @@ func (r *teamRepo) GetByLeaderID(ctx context.Context, id uuid.UUID) (*Team, erro
 			&team.Name,
 			&team.Timezone,
 			&team.LeaderID,
+			&team.IsActive,
 		)
 		if err != nil {
 			return nil, dberrors.Map(err)
@@ -200,6 +202,7 @@ func (r *teamRepo) GetByLeaderID(ctx context.Context, id uuid.UUID) (*Team, erro
 		&team.Name,
 		&team.Timezone,
 		&team.LeaderID,
+		&team.IsActive,
 	)
 
 	if err != nil {
@@ -212,7 +215,7 @@ func (r *teamRepo) GetByLeaderID(ctx context.Context, id uuid.UUID) (*Team, erro
 
 func (r *teamRepo) ListActive(ctx context.Context) ([]*Team, error) {
 	const query = `
-        SELECT id, name, timezone, leader_id
+        SELECT id, name, timezone, leader_id, is_active
         FROM teams
         WHERE is_active = true
     `
@@ -243,6 +246,7 @@ func (r *teamRepo) ListActive(ctx context.Context) ([]*Team, error) {
 			&t.Name,
 			&t.Timezone,
 			&t.LeaderID,
+			&t.IsActive,
 		)
 		if err != nil {
 			return nil, dberrors.Map(err)
@@ -260,7 +264,7 @@ func (r *teamRepo) ListActive(ctx context.Context) ([]*Team, error) {
 
 func (r *teamRepo) List(ctx context.Context) ([]*Team, error) {
 	const query = `
-        SELECT id, name, timezone, leader_id
+        SELECT id, name, timezone, leader_id, is_active
         FROM teams
     `
 
@@ -290,6 +294,7 @@ func (r *teamRepo) List(ctx context.Context) ([]*Team, error) {
 			&t.Name,
 			&t.Timezone,
 			&t.LeaderID,
+			&t.IsActive,
 		)
 		if err != nil {
 			return nil, dberrors.Map(err)
@@ -312,7 +317,7 @@ func (r *teamRepo) Update(ctx context.Context, id uuid.UUID, team Team) (*Team, 
 			name = $1,
 			timezone = $2,
 			leader_id = $3,
-			is_active = $4,
+			is_active = $4
 		WHERE id = $5
 	`
 	var err error
@@ -334,7 +339,7 @@ func (r *teamRepo) Update(ctx context.Context, id uuid.UUID, team Team) (*Team, 
 			team.Timezone,
 			team.LeaderID,
 			team.IsActive,
-			team.ID,
+			id,
 		)
 	}
 	if err != nil {
