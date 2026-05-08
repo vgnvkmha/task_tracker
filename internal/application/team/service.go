@@ -173,10 +173,12 @@ func (s *service) Update(ctx context.Context, id uuid.UUID, input *UpdateTeamInp
 				return mapGetError(err)
 			}
 		}
-		domainTeam.ApplyChanges(input.Name, input.Timezone, input.LeaderID, input.IsActive)
+		if err := domainTeam.ApplyChanges(input.Name, input.Timezone, input.LeaderID, input.IsActive); err != nil {
+			return mapDomainError(err)
+		}
 		team, err := s.teamRepo.Update(ctx, id, *domainTeam)
 		if err != nil {
-			return mapGetError(err)
+			return mapUpdateError(err)
 		}
 		result = team
 		return nil

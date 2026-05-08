@@ -1,9 +1,9 @@
 package user
 
 import (
-	"errors"
 	"net/http"
 	user_application "task_tracker/internal/application/user"
+	"task_tracker/internal/common_errors"
 	"task_tracker/internal/transport/http/middleware"
 
 	"github.com/gin-gonic/gin"
@@ -29,7 +29,7 @@ func (h *handler) CreateRegister(ctx *gin.Context) {
 	var input CreateRequest
 	if err := ctx.ShouldBindJSON(&input); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
+			"error": common_errors.ErrBadRequest.Error(),
 		})
 		return
 	}
@@ -37,22 +37,16 @@ func (h *handler) CreateRegister(ctx *gin.Context) {
 
 	user, err := h.service.CreateRegister(ctx.Request.Context(), inputModel)
 	if err != nil {
-		switch {
-		case errors.Is(err, user_application.ErrTeamNotFound):
-			ctx.JSON(http.StatusNotFound, gin.H{
-				"error": "team not found",
-			})
-			return
-
-		default:
-			ctx.JSON(http.StatusInternalServerError, gin.H{
-				"error": "internal error",
-			})
-			return
-		}
+		status, msg := mapError(err)
+		ctx.JSON(status, gin.H{
+			"error": msg,
+		})
+		return
 	}
 	response := FromDomain(*user)
-	ctx.JSON(http.StatusOK, response)
+	ctx.JSON(http.StatusCreated, gin.H{
+		"user": response,
+	})
 }
 
 func (h *handler) CreateByActor(ctx *gin.Context) {
@@ -67,7 +61,7 @@ func (h *handler) CreateByActor(ctx *gin.Context) {
 	var input CreateRequest
 	if err := ctx.ShouldBindJSON(&input); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
+			"error": common_errors.ErrBadRequest.Error(),
 		})
 		return
 	}
@@ -79,13 +73,16 @@ func (h *handler) CreateByActor(ctx *gin.Context) {
 		inputModel,
 	)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+		status, msg := mapError(err)
+		ctx.JSON(status, gin.H{
+			"error": msg,
 		})
 		return
 	}
 	response := FromDomain(*user)
-	ctx.JSON(http.StatusOK, response)
+	ctx.JSON(http.StatusCreated, gin.H{
+		"user": response,
+	})
 }
 
 func (h *handler) Update(ctx *gin.Context) {
@@ -100,25 +97,29 @@ func (h *handler) Update(ctx *gin.Context) {
 	var input UpdateRequest
 	if err := ctx.ShouldBindJSON(&input); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
+			"error": common_errors.ErrBadRequest.Error(),
 		})
 		return
 	}
 	inputModel, err := input.ToServiceInput()
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": err,
+		status, msg := mapError(err)
+		ctx.JSON(status, gin.H{
+			"error": msg,
 		})
 		return
 	}
-	updatedUser, err := h.service.Update(ctx, actor, inputModel)
+	updatedUser, err := h.service.Update(ctx.Request.Context(), actor, inputModel)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": err,
+		status, msg := mapError(err)
+		ctx.JSON(status, gin.H{
+			"error": msg,
 		})
 		return
 	}
 	response := FromDomain(*updatedUser)
-	ctx.JSON(http.StatusOK, response)
+	ctx.JSON(http.StatusOK, gin.H{
+		"user": response,
+	})
 
 }

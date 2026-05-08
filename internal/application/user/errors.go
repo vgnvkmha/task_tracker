@@ -11,9 +11,12 @@ var (
 	ErrUserUpdateFailed      = errors.New("user update failed")
 
 	// input / orchestration
-	ErrRoleRequired = errors.New("user role must be provided")
-	ErrInvalidRole  = errors.New("input role is invalid")
-	ErrInvalidInput = errors.New("invalid user input")
+	ErrRoleRequired     = errors.New("user role must be provided")
+	ErrInvalidRole      = errors.New("input role is invalid")
+	ErrInvalidInput     = errors.New("invalid user input")
+	ErrInvalidUserID    = errors.New("invalid user_id")
+	ErrInvalidTeamID    = errors.New("invalid team_id")
+	ErrInvalidBirthDate = errors.New("invalid birth_date")
 
 	// team-related
 	ErrTeamNotFound    = errors.New("team not found")

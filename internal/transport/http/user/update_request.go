@@ -23,14 +23,14 @@ type UpdateRequest struct {
 func (r UpdateRequest) ToServiceInput() (user.UpdateUserInput, error) {
 	userID, err := uuid.Parse(r.UserID)
 	if err != nil {
-		return user.UpdateUserInput{}, ErrInvalidUserID
+		return user.UpdateUserInput{}, user.ErrInvalidUserID
 	}
 
 	var teamID *uuid.UUID
 	if r.TeamID != nil {
 		tid, err := uuid.Parse(*r.TeamID)
 		if err != nil {
-			return user.UpdateUserInput{}, ErrInvalidTeamID
+			return user.UpdateUserInput{}, user.ErrInvalidTeamID
 		}
 		teamID = &tid
 	}
@@ -39,7 +39,7 @@ func (r UpdateRequest) ToServiceInput() (user.UpdateUserInput, error) {
 	if r.BirthDate != nil {
 		t, err := time.Parse(time.RFC3339, *r.BirthDate)
 		if err != nil {
-			return user.UpdateUserInput{}, ErrInvalidBirthDate
+			return user.UpdateUserInput{}, user.ErrInvalidBirthDate
 		}
 		birthDate = &t
 	}
