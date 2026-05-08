@@ -43,11 +43,11 @@ func mapError(err error) (int, string) {
 		errors.Is(err, domainUser.ErrInvalidRole):
 		return http.StatusBadRequest, "invalid user input"
 	case errors.Is(err, valueobjects.ErrInvalidEmail):
-		return http.StatusBadRequest, "invalid email"
+		return http.StatusUnprocessableEntity, "invalid email"
 	case errors.Is(err, valueobjects.ErrWeakPassword):
-		return http.StatusBadRequest, "password is too weak"
+		return http.StatusUnprocessableEntity, "password is too weak"
 	case errors.Is(err, domainUser.ErrManagerMustHaveTeam):
-		return http.StatusBadRequest, "manager must have a team"
+		return http.StatusUnprocessableEntity, "manager must have a team"
 	case errors.Is(err, domainUser.ErrEmptyData):
 		return http.StatusBadRequest, "personal data must be set"
 
