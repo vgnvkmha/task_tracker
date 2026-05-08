@@ -12,6 +12,6 @@ func logError(err error, logger *zap.SugaredLogger, fields ...any) error {
 }
 
 func logSuccess(logger *zap.SugaredLogger, fields ...any) {
-	logger.Infow("user operation succesful", fields...,
+	logger.Infow("user operation successful", fields...,
 	)
 }

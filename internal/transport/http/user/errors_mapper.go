@@ -39,6 +39,7 @@ func mapError(err error) (int, string) {
 
 	case errors.Is(err, userApplication.ErrInvalidRole),
 		errors.Is(err, userApplication.ErrInvalidInput),
+		errors.Is(err, userApplication.ErrRoleRequired),
 		errors.Is(err, domainUser.ErrInvalidRole):
 		return http.StatusBadRequest, "invalid user input"
 	case errors.Is(err, valueobjects.ErrInvalidEmail):

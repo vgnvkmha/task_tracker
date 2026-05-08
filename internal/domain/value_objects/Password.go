@@ -1,7 +1,9 @@
 package valueobjects
 
 import (
+	"database/sql/driver"
 	"errors"
+	"fmt"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -35,4 +37,24 @@ func (p Password) Compare(raw string) bool {
 // For DB save
 func (p Password) Hash() string {
 	return string(p.hash)
+}
+
+func (p Password) Value() (driver.Value, error) {
+	return p.Hash(), nil
+}
+
+func (p *Password) Scan(value any) error {
+	switch v := value.(type) {
+	case string:
+		p.hash = []byte(v)
+		return nil
+	case []byte:
+		p.hash = append(p.hash[:0], v...)
+		return nil
+	case nil:
+		p.hash = nil
+		return nil
+	default:
+		return fmt.Errorf("cannot scan %T into Password", value)
+	}
 }
