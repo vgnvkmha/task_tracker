@@ -52,6 +52,7 @@ func Run() error {
 	// taskHandler := task_handler.New(service)
 
 	router := gin.Default()
+	router.SetTrustedProxies(nil) //TODO: change later
 	router.Use(middleware.MockActorMiddleware())
 	handler_user.RegisterRoutes(router, userHandler)
 	team_handler.RegisterRoutes(router, teamHandler)

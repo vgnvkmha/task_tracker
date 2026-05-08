@@ -11,6 +11,7 @@ func New() (*zap.SugaredLogger, error) {
 	config.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 	config.Encoding = "console"
 	config.EncoderConfig.StacktraceKey = ""
+	config.DisableCaller = true
 
 	logger, err := config.Build()
 	if err != nil {

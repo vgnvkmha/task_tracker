@@ -39,13 +39,10 @@ type service struct {
 
 func New(userRepo userRepo.UserRepo, dataRepo userRepo.PersonalDataRepo, teamRepo team.TeamRepo, logger *zap.SugaredLogger, transaction common.TxManager) UserService {
 	return &service{
-		userRepo: userRepo,
-		dataRepo: dataRepo,
-		teamRepo: teamRepo,
-		logger: logger.With(
-			"module", module,
-			"layer", layer,
-		),
+		userRepo:    userRepo,
+		dataRepo:    dataRepo,
+		teamRepo:    teamRepo,
+		logger:      logger,
 		transaction: transaction,
 	}
 }
@@ -58,8 +55,7 @@ func (s *service) CreateRegister(ctx context.Context, userInput CreateUserInput)
 		if userInput.TeamName != nil {
 			team, err := s.teamRepo.GetByName(ctx, *userInput.TeamName)
 			if err != nil {
-				s.logger.Errorw("get team by name failed",
-					"error", err,
+				logFailure(s.logger, "get team by name failed", err,
 					"operation", "create_register",
 					"team_name", *userInput.TeamName,
 				)
@@ -75,8 +71,7 @@ func (s *service) CreateRegister(ctx context.Context, userInput CreateUserInput)
 			userInput.Age,
 		)
 		if err != nil {
-			s.logger.Errorw("build personal data failed",
-				"error", err,
+			logFailure(s.logger, "build personal data failed", err,
 				"operation", "create_register",
 				"email", userInput.Email,
 			)
@@ -84,8 +79,7 @@ func (s *service) CreateRegister(ctx context.Context, userInput CreateUserInput)
 		}
 
 		if _, err = s.dataRepo.Create(ctx, *personalData); err != nil {
-			s.logger.Errorw("create personal data failed",
-				"error", err,
+			logFailure(s.logger, "create personal data failed", err,
 				"operation", "create_register",
 				"personal_data_id", personalData.Id,
 			)
@@ -93,7 +87,7 @@ func (s *service) CreateRegister(ctx context.Context, userInput CreateUserInput)
 		}
 
 		if userInput.Role == nil {
-			s.logger.Errorw("role is required",
+			logFailure(s.logger, "role is required", nil,
 				"operation", "create_register",
 				"email", userInput.Email,
 			)
@@ -108,8 +102,7 @@ func (s *service) CreateRegister(ctx context.Context, userInput CreateUserInput)
 			*userInput.Role,
 		)
 		if err != nil {
-			s.logger.Errorw("build user failed",
-				"error", err,
+			logFailure(s.logger, "build user failed", err,
 				"operation", "create_register",
 				"email", userInput.Email,
 				"personal_data_id", personalData.Id,
@@ -123,8 +116,7 @@ func (s *service) CreateRegister(ctx context.Context, userInput CreateUserInput)
 			if errors.Is(err, user.ErrAlreadyExists) {
 				return ErrUserAlreadyExists
 			}
-			s.logger.Errorw("create user repo failed",
-				"error", err,
+			logFailure(s.logger, "create user repo failed", err,
 				"operation", "create_register",
 				"email", userInput.Email,
 				"user_id", mappedUser.ID,
@@ -163,7 +155,7 @@ func (s *service) CreateByActor(ctx context.Context, actor auth.Actor, userInput
 		var teamID uuid.UUID = uuid.Nil
 		actorRole := valueobjects.Role(actor.Role)
 		if !actorRole.IsManagerRole() {
-			s.logger.Errorw("actor role cannot create users",
+			logFailure(s.logger, "actor role cannot create users", nil,
 				"operation", "create_by_actor",
 				"actor_id", actor.Id,
 				"actor_role", actor.Role,
@@ -173,8 +165,7 @@ func (s *service) CreateByActor(ctx context.Context, actor auth.Actor, userInput
 		if userInput.TeamName != nil {
 			team, err := s.teamRepo.GetByName(ctx, *userInput.TeamName)
 			if err != nil {
-				s.logger.Errorw("get team by name failed",
-					"error", err,
+				logFailure(s.logger, "get team by name failed", err,
 					"operation", "create_by_actor",
 					"actor_id", actor.Id,
 					"actor_role", actor.Role,
@@ -192,8 +183,7 @@ func (s *service) CreateByActor(ctx context.Context, actor auth.Actor, userInput
 			userInput.Age,
 		)
 		if err != nil {
-			s.logger.Errorw("build personal data failed",
-				"error", err,
+			logFailure(s.logger, "build personal data failed", err,
 				"operation", "create_by_actor",
 				"actor_id", actor.Id,
 				"actor_role", actor.Role,
@@ -203,8 +193,7 @@ func (s *service) CreateByActor(ctx context.Context, actor auth.Actor, userInput
 		}
 
 		if _, err = s.dataRepo.Create(ctx, *personalData); err != nil {
-			s.logger.Errorw("create personal data failed",
-				"error", err,
+			logFailure(s.logger, "create personal data failed", err,
 				"operation", "create_by_actor",
 				"actor_id", actor.Id,
 				"actor_role", actor.Role,
@@ -214,7 +203,7 @@ func (s *service) CreateByActor(ctx context.Context, actor auth.Actor, userInput
 		}
 
 		if userInput.Role == nil {
-			s.logger.Errorw("role is required",
+			logFailure(s.logger, "role is required", nil,
 				"operation", "create_by_actor",
 				"actor_id", actor.Id,
 				"actor_role", actor.Role,
@@ -231,8 +220,7 @@ func (s *service) CreateByActor(ctx context.Context, actor auth.Actor, userInput
 			*userInput.Role,
 		)
 		if err != nil {
-			s.logger.Errorw("build user failed",
-				"error", err,
+			logFailure(s.logger, "build user failed", err,
 				"operation", "create_by_actor",
 				"actor_id", actor.Id,
 				"actor_role", actor.Role,
@@ -245,8 +233,7 @@ func (s *service) CreateByActor(ctx context.Context, actor auth.Actor, userInput
 
 		createdUser, err := s.userRepo.Create(ctx, *mappedUser)
 		if err != nil {
-			s.logger.Errorw("create user repo failed",
-				"error", err,
+			logFailure(s.logger, "create user repo failed", err,
 				"operation", "create_by_actor",
 				"actor_id", actor.Id,
 				"actor_role", actor.Role,
@@ -290,7 +277,7 @@ func (s *service) Update(ctx context.Context, actor auth.Actor, userInput Update
 
 	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
 		if userInput.Email == nil {
-			s.logger.Errorw("email is required",
+			logFailure(s.logger, "email is required", nil,
 				"operation", "update",
 				"actor_id", actor.Id,
 				"actor_role", actor.Role,
@@ -299,7 +286,7 @@ func (s *service) Update(ctx context.Context, actor auth.Actor, userInput Update
 			return ErrInvalidInput
 		}
 		if userInput.Password == nil {
-			s.logger.Errorw("password is required",
+			logFailure(s.logger, "password is required", nil,
 				"operation", "update",
 				"actor_id", actor.Id,
 				"actor_role", actor.Role,
@@ -309,7 +296,7 @@ func (s *service) Update(ctx context.Context, actor auth.Actor, userInput Update
 			return ErrInvalidInput
 		}
 		if userInput.Role == nil {
-			s.logger.Errorw("role is required",
+			logFailure(s.logger, "role is required", nil,
 				"operation", "update",
 				"actor_id", actor.Id,
 				"actor_role", actor.Role,
@@ -321,8 +308,7 @@ func (s *service) Update(ctx context.Context, actor auth.Actor, userInput Update
 
 		existingUser, err := s.userRepo.GetByEmail(ctx, *userInput.Email)
 		if err != nil {
-			s.logger.Errorw("get user by email failed",
-				"error", err,
+			logFailure(s.logger, "get user by email failed", err,
 				"operation", "update",
 				"actor_id", actor.Id,
 				"actor_role", actor.Role,
@@ -334,8 +320,7 @@ func (s *service) Update(ctx context.Context, actor auth.Actor, userInput Update
 		if userInput.TeamId != nil {
 			team, err := s.teamRepo.GetByID(ctx, *userInput.TeamId)
 			if err != nil {
-				s.logger.Errorw("get team by id failed",
-					"error", err,
+				logFailure(s.logger, "get team by id failed", err,
 					"operation", "update",
 					"actor_id", actor.Id,
 					"actor_role", actor.Role,
@@ -354,8 +339,7 @@ func (s *service) Update(ctx context.Context, actor auth.Actor, userInput Update
 
 			pd, err := s.dataRepo.Get(ctx, existingUser.PersonalDataID)
 			if err != nil {
-				s.logger.Errorw("get personal data failed",
-					"error", err,
+				logFailure(s.logger, "get personal data failed", err,
 					"operation", "update",
 					"actor_id", actor.Id,
 					"actor_role", actor.Role,
@@ -379,8 +363,7 @@ func (s *service) Update(ctx context.Context, actor auth.Actor, userInput Update
 			}
 
 			if err := pd.Validate(); err != nil {
-				s.logger.Errorw("validate personal data failed",
-					"error", err,
+				logFailure(s.logger, "validate personal data failed", err,
 					"operation", "update",
 					"actor_id", actor.Id,
 					"actor_role", actor.Role,
@@ -391,8 +374,7 @@ func (s *service) Update(ctx context.Context, actor auth.Actor, userInput Update
 			}
 
 			if _, err := s.dataRepo.Update(ctx, pd); err != nil {
-				s.logger.Errorw("update personal data failed",
-					"error", err,
+				logFailure(s.logger, "update personal data failed", err,
 					"operation", "update",
 					"actor_id", actor.Id,
 					"actor_role", actor.Role,
@@ -405,8 +387,7 @@ func (s *service) Update(ctx context.Context, actor auth.Actor, userInput Update
 
 		email, err := valueobjects.NewEmail(*userInput.Email)
 		if err != nil {
-			s.logger.Errorw("build email failed",
-				"error", err,
+			logFailure(s.logger, "build email failed", err,
 				"operation", "update",
 				"actor_id", actor.Id,
 				"actor_role", actor.Role,
@@ -419,8 +400,7 @@ func (s *service) Update(ctx context.Context, actor auth.Actor, userInput Update
 
 		password, err := valueobjects.NewPassword(*userInput.Password)
 		if err != nil {
-			s.logger.Errorw("build password failed",
-				"error", err,
+			logFailure(s.logger, "build password failed", err,
 				"operation", "update",
 				"actor_id", actor.Id,
 				"actor_role", actor.Role,
@@ -433,7 +413,7 @@ func (s *service) Update(ctx context.Context, actor auth.Actor, userInput Update
 		if valueobjects.IsValidRole(*userInput.Role) {
 			existingUser.Role = valueobjects.Role(*userInput.Role)
 		} else {
-			s.logger.Errorw("invalid role",
+			logFailure(s.logger, "invalid role", nil,
 				"operation", "update",
 				"actor_id", actor.Id,
 				"actor_role", actor.Role,
@@ -445,8 +425,7 @@ func (s *service) Update(ctx context.Context, actor auth.Actor, userInput Update
 
 		savedUser, err := s.userRepo.Update(ctx, existingUser.ID, *existingUser)
 		if err != nil {
-			s.logger.Errorw("update user repo failed",
-				"error", err,
+			logFailure(s.logger, "update user repo failed", err,
 				"operation", "update",
 				"actor_id", actor.Id,
 				"actor_role", actor.Role,
