@@ -45,7 +45,7 @@ func mapError(err error) (int, string) {
 	case errors.Is(err, valueobjects.ErrInvalidEmail):
 		return http.StatusUnprocessableEntity, "invalid email"
 	case errors.Is(err, valueobjects.ErrWeakPassword):
-		return http.StatusUnprocessableEntity, "password is too weak"
+		return http.StatusUnprocessableEntity, "password is too weak: password must be at least 8 characters long and include lowercase, uppercase, digit, and special character"
 	case errors.Is(err, domainUser.ErrManagerMustHaveTeam):
 		return http.StatusUnprocessableEntity, "manager must have a team"
 	case errors.Is(err, domainUser.ErrEmptyData):

@@ -4,6 +4,7 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
+	"unicode"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -17,7 +18,7 @@ type Password struct {
 }
 
 func NewPassword(raw string) (Password, error) {
-	if len(raw) < 8 {
+	if !isStrongPassword(raw) {
 		return Password{}, ErrWeakPassword
 	}
 
@@ -27,6 +28,41 @@ func NewPassword(raw string) (Password, error) {
 	}
 
 	return Password{hash: hash}, nil
+}
+
+func isStrongPassword(raw string) bool {
+	if len(raw) < 8 {
+		return false
+	}
+
+	var (
+		hasLower   bool
+		hasUpper   bool
+		hasDigit   bool
+		hasSpecial bool
+	)
+
+	for _, r := range raw {
+		switch {
+		case unicode.IsLower(r):
+			hasLower = true
+
+		case unicode.IsUpper(r):
+			hasUpper = true
+
+		case unicode.IsDigit(r):
+			hasDigit = true
+
+		case unicode.IsPunct(r), unicode.IsSymbol(r):
+			hasSpecial = true
+		}
+
+		if hasLower && hasUpper && hasDigit && hasSpecial {
+			return true
+		}
+	}
+
+	return false
 }
 
 // For login
