@@ -30,5 +30,5 @@ var (
 
 	// user persistence
 	ErrUserAlreadyExists = errors.New("user already exists")
-	ErrUserCreateFailed  = errors.New("failed to persist user")
+	ErrPersistUser       = errors.New("failed to persist user")
 )

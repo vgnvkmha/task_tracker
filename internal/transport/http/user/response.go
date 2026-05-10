@@ -15,7 +15,7 @@ type Response struct {
 	PersonalDataID uuid.UUID          `json:"personal_data_id"`
 }
 
-func FromDomain(user user.User) Response {
+func FromDomain(user *user.User) Response {
 	return Response{
 		ID:             user.ID,
 		Email:          user.Email,
@@ -23,4 +23,12 @@ func FromDomain(user user.User) Response {
 		TeamID:         user.TeamID,
 		PersonalDataID: user.PersonalDataID,
 	}
+}
+
+func FromDomainReponses(users []*user.User) []Response {
+	var response []Response
+	for _, v := range users {
+		response = append(response, FromDomain(v))
+	}
+	return response
 }

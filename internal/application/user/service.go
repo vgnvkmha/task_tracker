@@ -250,7 +250,7 @@ func (s *service) CreateByActor(ctx context.Context, actor auth.Actor, userInput
 				"team_id", mappedUser.TeamID,
 				"personal_data_id", mappedUser.PersonalDataID,
 			)
-			return ErrUserCreateFailed
+			return ErrCreateUserFailed
 		}
 
 		u = createdUser
