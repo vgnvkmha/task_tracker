@@ -2,8 +2,6 @@ package team
 
 import (
 	"errors"
-	"fmt"
-	"task_tracker/internal/domain/team"
 )
 
 var (
@@ -18,25 +16,47 @@ var (
 	ErrLeaderAlreadyHasTeam = errors.New("leader has team already")
 
 	// Access
-	ErrPermissionDenied = errors.New("only managers can create teams")
+	ErrPermissionDenied = errors.New("only managers can modify teams")
 
 	// Generic service layer
 	ErrInvalidInput = errors.New("invalid input")
+	ErrInvalidID    = errors.New("invalid team ID")
 )
 
-func mapDomainError(err error) error {
+func isUnexpectedError(err error) bool {
 	switch {
-	case errors.Is(err, team.ErrInvalidTZ):
-		return fmt.Errorf("invalid timezone: %w", ErrInvalidInput)
+	// Team
+	case errors.Is(err, ErrTeamNotFound):
+		return false
 
-	case errors.Is(err, team.ErrInvalidLeaderID):
-		return fmt.Errorf("invalid leader ID: %w", ErrInvalidInput)
+	case errors.Is(err, ErrTeamAlreadyExists):
+		return false
 
-	case errors.Is(err, team.ErrEmptyName):
-		return fmt.Errorf("empty name: %w", ErrInvalidInput)
-	case errors.Is(err, team.ErrNameTooLong):
-		return fmt.Errorf("name too long: %w", ErrInvalidInput)
+	case errors.Is(err, ErrTeamInactive):
+		return false
+
+	// Leader / User
+	case errors.Is(err, ErrLeaderNotFound):
+		return false
+
+	case errors.Is(err, ErrLeaderInactive):
+		return false
+
+	case errors.Is(err, ErrLeaderAlreadyHasTeam):
+		return false
+
+	// Access
+	case errors.Is(err, ErrPermissionDenied):
+		return false
+
+	// Validation
+	case errors.Is(err, ErrInvalidInput):
+		return false
+
+	case errors.Is(err, ErrInvalidID):
+		return false
+
 	default:
-		return err
+		return true
 	}
 }

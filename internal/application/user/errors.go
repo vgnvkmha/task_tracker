@@ -6,9 +6,10 @@ var (
 	// general
 	ErrCreateUserFailed      = errors.New("failed to create user")
 	ErrTransactionFailed     = errors.New("transaction failed")
-	ErrOnlyManagersCanCreate = errors.New("only managers can create new users")
-	ErrUserNotFound          = errors.New("user was not found")
+	ErrOnlyManagersCanModify = errors.New("only managers can modify users")
+	ErrUserNotFound          = errors.New("user not found")
 	ErrUserUpdateFailed      = errors.New("user update failed")
+	ErrConflict              = errors.New("Conflict with user")
 
 	// input / orchestration
 	ErrRoleRequired     = errors.New("user role must be provided")

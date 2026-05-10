@@ -174,7 +174,7 @@ func (s *service) Update(ctx context.Context, id uuid.UUID, input *UpdateTeamInp
 			}
 		}
 		if err := domainTeam.ApplyChanges(input.Name, input.Timezone, input.LeaderID, input.IsActive); err != nil {
-			return mapDomainError(err)
+			return err
 		}
 		team, err := s.teamRepo.Update(ctx, id, *domainTeam)
 		if err != nil {
@@ -284,11 +284,11 @@ func mapCreateError(err error) error {
 func mapGetError(err error) error {
 	switch {
 	case errors.Is(err, common_errors.ErrNotFound):
-		return common_errors.ErrNotFound
+		return ErrTeamNotFound
 	case errors.Is(err, common_errors.ErrInvalidID):
-		return common_errors.ErrInvalidID
-	case errors.Is(err, common_errors.ErrPermissionDenied):
-		return common_errors.ErrPermissionDenied
+		return ErrInvalidID
+	case errors.Is(err, common_errors.ErrInvalidArgument):
+		return ErrInvalidInput
 	default:
 		return err
 	}
@@ -320,7 +320,8 @@ func mapDeleteError(err error) error {
 
 	case errors.Is(err, common_errors.ErrNotFound):
 		return ErrTeamNotFound
-
+	case errors.Is(err, ErrInvalidInput):
+		return ErrInvalidInput
 	default:
 		return err
 	}

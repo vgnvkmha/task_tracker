@@ -32,7 +32,7 @@ func mapError(err error) (int, string) {
 		errors.Is(err, domainUser.ErrEmailAlreadyUsed):
 		return http.StatusConflict, "user already exists"
 
-	case errors.Is(err, userApplication.ErrOnlyManagersCanCreate),
+	case errors.Is(err, userApplication.ErrOnlyManagersCanModify),
 		errors.Is(err, common_errors.ErrPermissionDenied),
 		errors.Is(err, domainUser.ErrPermissionDenied):
 		return http.StatusForbidden, "forbidden"
