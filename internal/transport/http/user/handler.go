@@ -132,10 +132,10 @@ func (h *handler) GetByID(c *gin.Context) {
 	id := c.Param("user_id")
 	uuid, err := uuid.Parse(id)
 	if err != nil {
-		status, msg := mapError(err)
-		c.JSON(status, gin.H{
-			"error": msg,
+		c.JSON(http.StatusUnprocessableEntity, gin.H{
+			"error": "invalid id",
 		})
+		return
 	}
 	ctx := c.Request.Context()
 	user, err := h.service.GetByID(ctx, uuid)
@@ -167,7 +167,7 @@ func (h *handler) ListActive(c *gin.Context) {
 	response = FromDomainReponses(activeUsers)
 
 	c.JSON(http.StatusOK, gin.H{
-		"team": response,
+		"active_users": response,
 	})
 }
 
@@ -185,7 +185,7 @@ func (h *handler) List(c *gin.Context) {
 	response = FromDomainReponses(activeUsers)
 
 	c.JSON(http.StatusOK, gin.H{
-		"team": response,
+		"users": response,
 	})
 }
 
