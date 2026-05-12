@@ -10,6 +10,7 @@ var (
 	ErrUserNotFound          = errors.New("user not found")
 	ErrUserUpdateFailed      = errors.New("user update failed")
 	ErrConflict              = errors.New("Conflict with user")
+	ErrUserAlreadyDeleted    = errors.New("user already was deleted")
 
 	// input / orchestration
 	ErrRoleRequired     = errors.New("user role must be provided")

@@ -487,13 +487,14 @@ func (s *service) List(ctx context.Context) ([]*User, error) {
 
 func (s *service) DeleteByID(ctx context.Context, actor auth.Actor, id uuid.UUID) error {
 	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
-		_, err := s.userRepo.GetByID(ctx, id)
-		if err != nil {
-			return mapGetError(err)
-		}
 
 		if !actor.Role.IsManagerRole() {
 			return ErrOnlyManagersCanModify
+		}
+
+		_, err := s.userRepo.GetByID(ctx, id)
+		if err != nil {
+			return mapGetError(err)
 		}
 
 		err = s.userRepo.Delete(ctx, id)
@@ -571,7 +572,8 @@ func mapDeleteError(err error) error {
 
 	case errors.Is(err, common_errors.ErrNotFound):
 		return ErrUserNotFound
-
+	case errors.Is(err, common_errors.ErrConflict):
+		return ErrUserAlreadyDeleted
 	default:
 		return err
 	}

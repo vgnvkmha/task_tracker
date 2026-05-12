@@ -59,7 +59,7 @@ func (h *handler) CreateByActor(c *gin.Context) {
 	actor, ok := middleware.GetActor(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{
-			"error": "unauthorized",
+			"error": common_errors.ErrUnauthorized.Error(),
 		})
 		return
 	}
@@ -71,8 +71,8 @@ func (h *handler) CreateByActor(c *gin.Context) {
 		})
 		return
 	}
-	inputModel := input.ToServiceInput()
 
+	inputModel := input.ToServiceInput()
 	ctx := c.Request.Context()
 	user, err := h.service.CreateByActor(ctx, actor, inputModel)
 	if err != nil {
@@ -82,6 +82,7 @@ func (h *handler) CreateByActor(c *gin.Context) {
 		})
 		return
 	}
+
 	response := FromDomain(user)
 	c.JSON(http.StatusCreated, gin.H{
 		"user": response,
@@ -92,7 +93,7 @@ func (h *handler) Update(c *gin.Context) {
 	actor, ok := middleware.GetActor(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{
-			"error": "unauthorized",
+			"error": common_errors.ErrUnauthorized.Error(),
 		})
 		return
 	}
@@ -104,6 +105,7 @@ func (h *handler) Update(c *gin.Context) {
 		})
 		return
 	}
+
 	inputModel, err := input.ToServiceInput()
 	if err != nil {
 		status, msg := mapError(err)
@@ -112,6 +114,7 @@ func (h *handler) Update(c *gin.Context) {
 		})
 		return
 	}
+
 	ctx := c.Request.Context()
 	updatedUser, err := h.service.Update(ctx, actor, inputModel)
 	if err != nil {
@@ -121,6 +124,7 @@ func (h *handler) Update(c *gin.Context) {
 		})
 		return
 	}
+
 	response := FromDomain(updatedUser)
 	c.JSON(http.StatusOK, gin.H{
 		"user": response,
@@ -133,7 +137,7 @@ func (h *handler) GetByID(c *gin.Context) {
 	uuid, err := uuid.Parse(id)
 	if err != nil {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{
-			"error": "invalid id",
+			"error": common_errors.ErrInvalidID.Error(),
 		})
 		return
 	}
@@ -149,7 +153,7 @@ func (h *handler) GetByID(c *gin.Context) {
 	response := FromDomain(user)
 
 	c.JSON(http.StatusOK, gin.H{
-		"team": response,
+		"user": response,
 	})
 }
 
@@ -167,14 +171,14 @@ func (h *handler) ListActive(c *gin.Context) {
 	response = FromDomainReponses(activeUsers)
 
 	c.JSON(http.StatusOK, gin.H{
-		"active_users": response,
+		"active users": response,
 	})
 }
 
 func (h *handler) List(c *gin.Context) {
 	var response []Response
 	ctx := c.Request.Context()
-	activeUsers, err := h.service.List(ctx)
+	users, err := h.service.List(ctx)
 	if err != nil {
 		status, msg := mapError(err)
 		c.JSON(status, gin.H{
@@ -182,7 +186,7 @@ func (h *handler) List(c *gin.Context) {
 		})
 		return
 	}
-	response = FromDomainReponses(activeUsers)
+	response = FromDomainReponses(users)
 
 	c.JSON(http.StatusOK, gin.H{
 		"users": response,
@@ -193,15 +197,15 @@ func (h *handler) DeleteByID(c *gin.Context) {
 	actor, ok := middleware.GetActor(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{
-			"error": "unauthorized",
+			"error": common_errors.ErrUnauthorized.Error(),
 		})
 		return
 	}
-	team_id := c.Param("id")
-	uuid, err := uuid.Parse(team_id)
+	user_id := c.Param("id")
+	uuid, err := uuid.Parse(user_id)
 	if err != nil {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{
-			"error": common_errors.ErrInvalidID,
+			"error": common_errors.ErrInvalidID.Error(),
 		})
 		return
 
@@ -216,6 +220,6 @@ func (h *handler) DeleteByID(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"team_deleted": team_id,
+		"user deleted": user_id,
 	})
 }

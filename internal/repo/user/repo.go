@@ -3,6 +3,8 @@ package user
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"fmt"
 	"task_tracker/internal/common_errors"
 	"task_tracker/internal/domain/user"
 	"task_tracker/internal/infrastracture/db"
@@ -321,34 +323,50 @@ func (r *userRepo) Update(ctx context.Context, id uuid.UUID, user User) (*User, 
 }
 
 func (r *userRepo) Delete(ctx context.Context, id uuid.UUID) error {
-	const query = `
-		UPDATE users
-		SET is_active = false
-		WHERE id = $1
-	`
+	query := `
+        SELECT deleted_at
+        FROM users
+        WHERE id = $1
+    `
 
-	var (
-		res sql.Result
-		err error
-	)
+	var deletedAt sql.NullTime
+
+	var err error
 
 	if tx, ok := db.GetTx(ctx); ok {
-		res, err = tx.ExecContext(ctx, query, id)
+		err = tx.QueryRowContext(ctx, query, id).Scan(&deletedAt)
 	} else {
-		res, err = r.db.ExecContext(ctx, query, id)
+		err = r.db.QueryRowContext(ctx, query, id).Scan(&deletedAt)
+	}
+
+	fmt.Printf("%+v\n", deletedAt)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return common_errors.ErrNotFound
+		}
+
+		return dberrors.Map(err)
+	}
+
+	if deletedAt.Valid {
+		return common_errors.ErrConflict
+	}
+
+	updateQuery := `
+        UPDATE users
+        SET deleted_at = NOW(),
+			is_active = false
+        WHERE id = $1
+    `
+
+	if tx, ok := db.GetTx(ctx); ok {
+		_, err = tx.ExecContext(ctx, updateQuery, id)
+	} else {
+		_, err = r.db.ExecContext(ctx, updateQuery, id)
 	}
 
 	if err != nil {
 		return dberrors.Map(err)
-	}
-
-	rowsAffected, err := res.RowsAffected()
-	if err != nil {
-		return dberrors.Map(err)
-	}
-
-	if rowsAffected == 0 {
-		return common_errors.ErrNotFound
 	}
 
 	return nil
