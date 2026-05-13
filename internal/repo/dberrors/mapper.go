@@ -6,7 +6,7 @@ import (
 
 	"task_tracker/internal/common_errors"
 
-	"github.com/jackc/pgconn"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 func Map(err error) error {

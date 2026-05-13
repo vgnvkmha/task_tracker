@@ -1,0 +1,246 @@
+{{ define "user_create_page" }}
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ .title }}</title>
+  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f6f7f9;
+      color: #1f2937;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+    }
+
+    main {
+      width: min(960px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 48px 0;
+    }
+
+    h1 {
+      margin: 0 0 24px;
+      font-size: clamp(28px, 4vw, 42px);
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+
+    form {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-items: start;
+      gap: 18px;
+      padding: 24px;
+      border: 1px solid #d7dce3;
+      border-radius: 8px;
+      background: #ffffff;
+      box-shadow: 0 18px 45px rgba(31, 41, 55, 0.08);
+    }
+
+    label {
+      display: grid;
+      grid-template-rows: auto minmax(42px, auto) 18px;
+      gap: 7px;
+      font-size: 14px;
+      font-weight: 650;
+      color: #374151;
+    }
+
+    .required {
+      color: #b42318;
+    }
+
+    .field-error {
+      display: block;
+      visibility: hidden;
+      min-height: 18px;
+      line-height: 18px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #b42318;
+    }
+
+    label.has-error input,
+    label.has-error select {
+      border-color: #d92d20;
+      background: #fff7f6;
+    }
+
+    label.has-error .field-error {
+      visibility: visible;
+    }
+
+    input,
+    select {
+      min-height: 42px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 0 12px;
+      font: inherit;
+      color: #111827;
+      background: #ffffff;
+    }
+
+    input:focus,
+    select:focus {
+      outline: 3px solid #b8e2d2;
+      border-color: #268568;
+    }
+
+    .actions {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-top: 4px;
+    }
+
+    button {
+      min-height: 44px;
+      border: 0;
+      border-radius: 6px;
+      padding: 0 18px;
+      font: inherit;
+      font-weight: 700;
+      color: #ffffff;
+      background: #26735d;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #1d5d4b;
+    }
+
+    .result {
+      margin-top: 20px;
+      min-height: 54px;
+    }
+
+    .message {
+      padding: 14px 16px;
+      border-radius: 8px;
+      border: 1px solid #bdd7ca;
+      background: #eef8f3;
+      color: #174b3c;
+    }
+
+    .message.error {
+      border-color: #f1b6b6;
+      background: #fff1f1;
+      color: #922424;
+    }
+
+    @media (max-width: 720px) {
+      main {
+        width: min(100% - 24px, 960px);
+        padding: 28px 0;
+      }
+
+      form {
+        grid-template-columns: 1fr;
+        padding: 18px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Для продолжения заполните форму</h1>
+    <form hx-post="/ui/users" hx-target="#create-user-result" hx-swap="innerHTML">
+      <label>
+        <span>Email <span class="required">*</span></span>
+        <input name="email" type="email" autocomplete="email" required data-required-message="Введите email">
+        <span class="field-error">Введите email</span>
+      </label>
+      <label>
+        <span>Пароль <span class="required">*</span></span>
+        <input name="password" type="password" autocomplete="new-password" required data-required-message="Введите пароль">
+        <span class="field-error">Введите пароль</span>
+      </label>
+      <label>
+        <span>Роль <span class="required">*</span></span>
+        <select name="role" required data-required-message="Выберите роль">
+          <option value="user">user</option>
+          <option value="captain">captain</option>
+          <option value="admin">admin</option>
+          <option value="guest">guest</option>
+        </select>
+        <span class="field-error">Выберите роль</span>
+      </label>
+      <label>
+        Команда
+        <input name="team_name" type="text" autocomplete="organization">
+      </label>
+      <label>
+        <span>Имя <span class="required">*</span></span>
+        <input name="first_name" type="text" autocomplete="given-name" required data-required-message="Введите имя">
+        <span class="field-error">Введите имя</span>
+      </label>
+      <label>
+        <span>Фамилия <span class="required">*</span></span>
+        <input name="last_name" type="text" autocomplete="family-name" required data-required-message="Введите фамилию">
+        <span class="field-error">Введите фамилию</span>
+      </label>
+      <label>
+        Возраст
+        <input name="age" type="number" min="0" max="255">
+      </label>
+      <label>
+        Дата рождения
+        <input name="birth_date" type="date">
+      </label>
+      <div class="actions">
+        <button type="submit">Создать пользователя</button>
+        <span class="htmx-indicator">Отправка...</span>
+      </div>
+    </form>
+    <section id="create-user-result" class="result" aria-live="polite"></section>
+  </main>
+  <script>
+    document.querySelectorAll("input[required], select[required]").forEach((field) => {
+      const label = field.closest("label");
+      const error = label.querySelector(".field-error");
+
+      const validateTouchedField = () => {
+        const isEmpty = field.value.trim() === "";
+        label.classList.toggle("has-error", isEmpty);
+        field.setAttribute("aria-invalid", isEmpty ? "true" : "false");
+
+        if (error && field.dataset.requiredMessage) {
+          error.textContent = field.dataset.requiredMessage;
+        }
+      };
+
+      field.addEventListener("blur", validateTouchedField);
+      field.addEventListener("input", () => {
+        if (label.classList.contains("has-error")) {
+          validateTouchedField();
+        }
+      });
+      field.addEventListener("change", () => {
+        if (label.classList.contains("has-error")) {
+          validateTouchedField();
+        }
+      });
+    });
+  </script>
+</body>
+</html>
+{{ end }}
+
+{{ define "user_create_result" }}
+  {{ if .error }}
+    <div class="message error">{{ .error }}</div>
+  {{ else }}
+    <div class="message">
+      Пользователь создан: {{ .user.Email }} с ролью {{ .user.Role }}.
+    </div>
+  {{ end }}
+{{ end }}

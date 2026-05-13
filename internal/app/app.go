@@ -53,6 +53,7 @@ func Run() error {
 
 	router := gin.Default()
 	router.SetTrustedProxies(nil) //TODO: change later
+	router.SetHTMLTemplate(handler_user.Templates())
 	router.Use(middleware.MockActorMiddleware())
 	handler_user.RegisterRoutes(router, userHandler)
 	team_handler.RegisterRoutes(router, teamHandler)

@@ -11,6 +11,8 @@ import (
 )
 
 type UserHandler interface {
+	ShowCreateForm(c *gin.Context)
+	SubmitCreateForm(c *gin.Context)
 	CreateRegister(c *gin.Context)
 	CreateByActor(c *gin.Context)
 	Update(c *gin.Context)
@@ -28,6 +30,35 @@ func New(service user_application.UserService) UserHandler {
 	return &handler{
 		service: service,
 	}
+}
+
+func (h *handler) ShowCreateForm(c *gin.Context) {
+	c.HTML(http.StatusOK, "user_create_page", gin.H{
+		"title": "Create user",
+	})
+}
+
+func (h *handler) SubmitCreateForm(c *gin.Context) {
+	input, err := NewCreateFormRequest(c.Request)
+	if err != nil {
+		c.HTML(http.StatusOK, "user_create_result", gin.H{
+			"error": mapUIFormError(err),
+		})
+		return
+	}
+
+	ctx := c.Request.Context()
+	createdUser, err := h.service.CreateRegister(ctx, input.ToServiceInput())
+	if err != nil {
+		c.HTML(http.StatusOK, "user_create_result", gin.H{
+			"error": mapUIError(err),
+		})
+		return
+	}
+
+	c.HTML(http.StatusCreated, "user_create_result", gin.H{
+		"user": FromDomain(createdUser),
+	})
 }
 
 func (h *handler) CreateRegister(c *gin.Context) {

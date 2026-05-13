@@ -121,7 +121,7 @@ func (s *service) CreateRegister(ctx context.Context, userInput CreateUserInput)
 
 		createdUser, err := s.userRepo.Create(ctx, *mappedUser)
 		if err != nil {
-			if errors.Is(err, user.ErrAlreadyExists) {
+			if errors.Is(err, user.ErrAlreadyExists) || errors.Is(err, common_errors.ErrAlreadyExists) {
 				return ErrUserAlreadyExists
 			}
 			logFailure(s.logger, "create user repo failed", err,
@@ -241,6 +241,9 @@ func (s *service) CreateByActor(ctx context.Context, actor auth.Actor, userInput
 
 		createdUser, err := s.userRepo.Create(ctx, *mappedUser)
 		if err != nil {
+			if errors.Is(err, user.ErrAlreadyExists) || errors.Is(err, common_errors.ErrAlreadyExists) {
+				return ErrUserAlreadyExists
+			}
 			logFailure(s.logger, "create user repo failed", err,
 				"operation", "create_by_actor",
 				"actor_id", actor.ID,
