@@ -32,7 +32,7 @@ func (r CreateRequest) ToServiceInput() userApplication.CreateUserInput {
 	return userApplication.CreateUserInput{
 		Email:     r.Email,
 		Password:  r.Password,
-		Role:      &r.Role,
+		Role:      r.Role,
 		TeamName:  r.TeamName,
 		FirstName: r.FirstName,
 		LastName:  r.LastName,
@@ -101,7 +101,7 @@ func (r CreateFormRequest) ToServiceInput() userApplication.CreateUserInput {
 	return userApplication.CreateUserInput{
 		Email:     r.Email,
 		Password:  r.Password,
-		Role:      &r.Role,
+		Role:      r.Role,
 		TeamName:  r.TeamName,
 		FirstName: r.FirstName,
 		LastName:  r.LastName,

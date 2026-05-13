@@ -48,7 +48,7 @@ func mapError(err error) (int, string) {
 	case errors.Is(err, userApplication.ErrUserAlreadyExists),
 		errors.Is(err, common_errors.ErrAlreadyExists),
 		errors.Is(err, domainUser.ErrAlreadyExists):
-		return http.StatusConflict, "user already exists"
+		return http.StatusConflict, "user with this email already exists"
 
 	case errors.Is(err, userApplication.ErrUserAlreadyDeleted):
 		return http.StatusGone, "user already deleted"

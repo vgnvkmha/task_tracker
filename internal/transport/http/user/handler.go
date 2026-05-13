@@ -122,7 +122,7 @@ func (h *handler) CreateByActor(c *gin.Context) {
 
 func (h *handler) Update(c *gin.Context) {
 	actor, ok := middleware.GetActor(c)
-	if !ok {
+	if !ok || actor.Role == " " { //TODO: remove empty role check
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"error": common_errors.ErrUnauthorized.Error(),
 		})

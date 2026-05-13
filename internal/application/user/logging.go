@@ -33,6 +33,13 @@ func defaultLogFields() []any {
 	}
 }
 
+func appendLogFields(base []any, fields ...any) []any {
+	result := make([]any, 0, len(base)+len(fields))
+	result = append(result, base...)
+	result = append(result, fields...)
+	return result
+}
+
 func formatLogFields(fields ...any) string {
 	if len(fields) == 0 {
 		return ""

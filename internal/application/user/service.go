@@ -8,7 +8,6 @@ import (
 	"task_tracker/internal/domain/auth"
 	personaldata "task_tracker/internal/domain/personal_data"
 	"task_tracker/internal/domain/user"
-	valueobjects "task_tracker/internal/domain/value_objects"
 	"task_tracker/internal/repo/team"
 	userRepo "task_tracker/internal/repo/user"
 
@@ -58,82 +57,10 @@ func New(userRepo userRepo.UserRepo, dataRepo userRepo.PersonalDataRepo, teamRep
 func (s *service) CreateRegister(ctx context.Context, userInput CreateUserInput) (*User, error) {
 	var u *User
 	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
-		var teamID uuid.UUID = uuid.Nil
-
-		if userInput.TeamName != nil {
-			team, err := s.teamRepo.GetByName(ctx, *userInput.TeamName)
-			if err != nil {
-				logFailure(s.logger, "get team by name failed", err,
-					"operation", "create_register",
-					"team_name", *userInput.TeamName,
-				)
-				return ErrTeamNotFound
-			}
-			teamID = team.ID
-		}
-
-		personalData, err := personaldata.New(
-			userInput.FirstName,
-			userInput.LastName,
-			userInput.BirthDate,
-			userInput.Age,
-		)
+		createdUser, err := s.createUser(ctx, "create_register", userInput)
 		if err != nil {
-			logFailure(s.logger, "build personal data failed", err,
-				"operation", "create_register",
-				"email", userInput.Email,
-			)
 			return err
 		}
-
-		if _, err = s.dataRepo.Create(ctx, *personalData); err != nil {
-			logFailure(s.logger, "create personal data failed", err,
-				"operation", "create_register",
-				"personal_data_id", personalData.Id,
-			)
-			return ErrPersonalDataCreateFailed
-		}
-
-		if userInput.Role == nil {
-			logFailure(s.logger, "role is required", nil,
-				"operation", "create_register",
-				"email", userInput.Email,
-			)
-			return ErrRoleRequired
-		}
-
-		mappedUser, err := user.New(
-			teamID,
-			personalData.Id,
-			userInput.Email,
-			userInput.Password,
-			*userInput.Role,
-		)
-		if err != nil {
-			logFailure(s.logger, "build user failed", err,
-				"operation", "create_register",
-				"email", userInput.Email,
-				"personal_data_id", personalData.Id,
-				"team_id", teamID,
-			)
-			return err
-		}
-
-		createdUser, err := s.userRepo.Create(ctx, *mappedUser)
-		if err != nil {
-			if errors.Is(err, user.ErrAlreadyExists) || errors.Is(err, common_errors.ErrAlreadyExists) {
-				return ErrUserAlreadyExists
-			}
-			logFailure(s.logger, "create user repo failed", err,
-				"operation", "create_register",
-				"email", userInput.Email,
-				"user_id", mappedUser.ID,
-				"team_id", mappedUser.TeamID,
-				"personal_data_id", mappedUser.PersonalDataID,
-			)
-			return ErrCreateUserFailed
-		}
-
 		u = createdUser
 		return nil
 	})
@@ -160,9 +87,7 @@ func (s *service) CreateRegister(ctx context.Context, userInput CreateUserInput)
 func (s *service) CreateByActor(ctx context.Context, actor auth.Actor, userInput CreateUserInput) (*User, error) {
 	var u *User
 	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
-		var teamID uuid.UUID = uuid.Nil
-		actorRole := valueobjects.Role(actor.Role)
-		if !actorRole.IsManagerRole() {
+		if !actor.Role.IsManagerRole() {
 			logFailure(s.logger, "actor role cannot create users", nil,
 				"operation", "create_by_actor",
 				"actor_id", actor.ID,
@@ -170,92 +95,14 @@ func (s *service) CreateByActor(ctx context.Context, actor auth.Actor, userInput
 			)
 			return ErrOnlyManagersCanModify
 		}
-		if userInput.TeamName != nil {
-			team, err := s.teamRepo.GetByName(ctx, *userInput.TeamName)
-			if err != nil {
-				logFailure(s.logger, "get team by name failed", err,
-					"operation", "create_by_actor",
-					"actor_id", actor.ID,
-					"actor_role", actor.Role,
-					"team_name", *userInput.TeamName,
-				)
-				return ErrTeamNotFound
-			}
-			teamID = team.ID
-		}
 
-		personalData, err := personaldata.New(
-			userInput.FirstName,
-			userInput.LastName,
-			userInput.BirthDate,
-			userInput.Age,
+		createdUser, err := s.createUser(ctx, "create_by_actor", userInput,
+			"actor_id", actor.ID,
+			"actor_role", actor.Role,
 		)
 		if err != nil {
-			logFailure(s.logger, "build personal data failed", err,
-				"operation", "create_by_actor",
-				"actor_id", actor.ID,
-				"actor_role", actor.Role,
-				"email", userInput.Email,
-			)
 			return err
 		}
-
-		if _, err = s.dataRepo.Create(ctx, *personalData); err != nil {
-			logFailure(s.logger, "create personal data failed", err,
-				"operation", "create_by_actor",
-				"actor_id", actor.ID,
-				"actor_role", actor.Role,
-				"personal_data_id", personalData.Id,
-			)
-			return ErrPersonalDataCreateFailed
-		}
-
-		if userInput.Role == nil {
-			logFailure(s.logger, "role is required", nil,
-				"operation", "create_by_actor",
-				"actor_id", actor.ID,
-				"actor_role", actor.Role,
-				"email", userInput.Email,
-			)
-			return ErrRoleRequired
-		}
-
-		mappedUser, err := user.New(
-			teamID,
-			personalData.Id,
-			userInput.Email,
-			userInput.Password,
-			*userInput.Role,
-		)
-		if err != nil {
-			logFailure(s.logger, "build user failed", err,
-				"operation", "create_by_actor",
-				"actor_id", actor.ID,
-				"actor_role", actor.Role,
-				"email", userInput.Email,
-				"personal_data_id", personalData.Id,
-				"team_id", teamID,
-			)
-			return err
-		}
-
-		createdUser, err := s.userRepo.Create(ctx, *mappedUser)
-		if err != nil {
-			if errors.Is(err, user.ErrAlreadyExists) || errors.Is(err, common_errors.ErrAlreadyExists) {
-				return ErrUserAlreadyExists
-			}
-			logFailure(s.logger, "create user repo failed", err,
-				"operation", "create_by_actor",
-				"actor_id", actor.ID,
-				"actor_role", actor.Role,
-				"email", userInput.Email,
-				"user_id", mappedUser.ID,
-				"team_id", mappedUser.TeamID,
-				"personal_data_id", mappedUser.PersonalDataID,
-			)
-			return ErrCreateUserFailed
-		}
-
 		u = createdUser
 		return nil
 	})
@@ -281,6 +128,79 @@ func (s *service) CreateByActor(ctx context.Context, actor auth.Actor, userInput
 	)
 
 	return u, nil
+}
+
+func (s *service) createUser(ctx context.Context, operation string, userInput CreateUserInput, logFields ...any) (*User, error) {
+	baseLogFields := appendLogFields([]any{"operation", operation}, logFields...)
+	teamID := uuid.Nil
+
+	if userInput.TeamName != nil {
+		team, err := s.teamRepo.GetByName(ctx, *userInput.TeamName)
+		if err != nil {
+			logFailure(s.logger, "get team by name failed", err,
+				appendLogFields(baseLogFields, "team_name", *userInput.TeamName)...,
+			)
+			return nil, ErrTeamNotFound
+		}
+		teamID = team.ID
+	}
+
+	personalData, err := personaldata.New(
+		userInput.FirstName,
+		userInput.LastName,
+		userInput.BirthDate,
+		userInput.Age,
+	)
+	if err != nil {
+		logFailure(s.logger, "build personal data failed", err,
+			appendLogFields(baseLogFields, "email", userInput.Email)...,
+		)
+		return nil, err
+	}
+
+	mappedUser, err := user.New(
+		teamID,
+		personalData.Id,
+		userInput.Email,
+		userInput.Password,
+		userInput.Role,
+	)
+	if err != nil {
+		logFailure(s.logger, "build user failed", err,
+			appendLogFields(baseLogFields,
+				"email", userInput.Email,
+				"personal_data_id", personalData.Id,
+				"team_id", teamID,
+			)...,
+		)
+		return nil, err
+	}
+
+	if _, err = s.dataRepo.Create(ctx, *personalData); err != nil {
+		logFailure(s.logger, "create personal data failed", err,
+			appendLogFields(baseLogFields, "personal_data_id", personalData.Id)...,
+		)
+		return nil, ErrPersonalDataCreateFailed
+	}
+
+	createdUser, err := s.userRepo.Create(ctx, *mappedUser)
+	if err != nil {
+		mappedErr := mapCreateError(err)
+		logFailure(s.logger, "create user repo failed", err,
+			appendLogFields(baseLogFields,
+				"email", userInput.Email,
+				"user_id", mappedUser.ID,
+				"team_id", mappedUser.TeamID,
+				"personal_data_id", mappedUser.PersonalDataID,
+			)...,
+		)
+		if mappedErr != err {
+			return nil, mappedErr
+		}
+		return nil, ErrCreateUserFailed
+	}
+
+	return createdUser, nil
 }
 
 func (s *service) Update(ctx context.Context, actor auth.Actor, userInput UpdateUserInput) (*User, error) {
@@ -313,20 +233,7 @@ func (s *service) Update(ctx context.Context, actor auth.Actor, userInput Update
 			return ErrPersonalDataNotFound
 		}
 
-		if userInput.FirstName != nil {
-			pd.FirstName = *userInput.FirstName
-		}
-		if userInput.LastName != nil {
-			pd.LastName = *userInput.LastName
-		}
-		if userInput.BirthDate != nil {
-			pd.BirthDate = userInput.BirthDate
-		}
-		if userInput.Age != nil {
-			pd.Age = userInput.Age
-		}
-
-		if err := pd.Validate(); err != nil {
+		if err := pd.Update(userInput.FirstName, userInput.LastName, userInput.Age, userInput.BirthDate); err != nil {
 			logFailure(s.logger, "validate personal data failed", err,
 				"operation", "update",
 				"actor_id", actor.ID,
@@ -348,46 +255,52 @@ func (s *service) Update(ctx context.Context, actor auth.Actor, userInput Update
 			return ErrPersonalDataUpdateFailed
 		}
 
-		email, err := valueobjects.NewEmail(*userInput.Email)
-		if err != nil {
-			logFailure(s.logger, "build email failed", err,
+		teamID := existingUser.TeamID
+		if userInput.TeamId != nil {
+			if _, err := s.teamRepo.GetByID(ctx, *userInput.TeamId); err != nil {
+				logFailure(s.logger, "get team by ID failed", err,
+					"operation", "update",
+					"actor_id", actor.ID,
+					"actor_role", actor.Role,
+					"user_id", existingUser.ID,
+					"team_id", *userInput.TeamId,
+				)
+				return ErrTeamNotFound
+			}
+			teamID = userInput.TeamId
+		}
+
+		if userInput.TeamName != nil {
+			team, err := s.teamRepo.GetByName(ctx, *userInput.TeamName)
+			if err != nil {
+				logFailure(s.logger, "get team by name failed", err,
+					"operation", "update",
+					"actor_id", actor.ID,
+					"actor_role", actor.Role,
+					"user_id", existingUser.ID,
+					"team_name", *userInput.TeamName,
+				)
+				return ErrTeamNotFound
+			}
+			teamID = &team.ID
+		}
+
+		if err := existingUser.Update(teamID, userInput.Email, userInput.Password, userInput.Role); err != nil {
+			logFailure(s.logger, "update user domain failed", err,
 				"operation", "update",
 				"actor_id", actor.ID,
 				"actor_role", actor.Role,
 				"user_id", existingUser.ID,
-				"email", *userInput.Email,
+				"email", userInput.Email,
+				"role", userInput.Role,
+				"team_id", teamID,
 			)
 			return err
-		}
-		existingUser.Email = email
-
-		password, err := valueobjects.NewPassword(*userInput.Password)
-		if err != nil {
-			logFailure(s.logger, "build password failed", err,
-				"operation", "update",
-				"actor_id", actor.ID,
-				"actor_role", actor.Role,
-				"user_id", existingUser.ID,
-			)
-			return err
-		}
-		existingUser.Password = password
-
-		if valueobjects.IsValidRole(*userInput.Role) {
-			existingUser.Role = valueobjects.Role(*userInput.Role)
-		} else {
-			logFailure(s.logger, "invalid role", nil,
-				"operation", "update",
-				"actor_id", actor.ID,
-				"actor_role", actor.Role,
-				"user_id", existingUser.ID,
-				"role", *userInput.Role,
-			)
-			return ErrInvalidRole
 		}
 
 		savedUser, err := s.userRepo.Update(ctx, existingUser.ID, *existingUser)
 		if err != nil {
+			mappedErr := mapUpdateError(err)
 			logFailure(s.logger, "update user repo failed", err,
 				"operation", "update",
 				"actor_id", actor.ID,
@@ -397,6 +310,9 @@ func (s *service) Update(ctx context.Context, actor auth.Actor, userInput Update
 				"team_id", existingUser.TeamID,
 				"personal_data_id", existingUser.PersonalDataID,
 			)
+			if mappedErr != err {
+				return mappedErr
+			}
 			return ErrUserUpdateFailed
 		}
 
@@ -525,6 +441,8 @@ func mapCreateError(err error) error {
 	switch {
 	case errors.Is(err, common_errors.ErrPermissionDenied):
 		return ErrOnlyManagersCanModify
+	case errors.Is(err, user.ErrAlreadyExists):
+		return ErrUserAlreadyExists
 	case errors.Is(err, common_errors.ErrAlreadyExists):
 		return ErrUserAlreadyExists
 	case errors.Is(err, common_errors.ErrConflict):
@@ -553,6 +471,9 @@ func mapUpdateError(err error) error {
 	switch {
 	case errors.Is(err, common_errors.ErrPermissionDenied):
 		return ErrOnlyManagersCanModify
+
+	case errors.Is(err, common_errors.ErrAlreadyExists):
+		return ErrUserAlreadyExists
 
 	case errors.Is(err, common_errors.ErrNotFound): //TODO: bad case
 		return common_errors.ErrNotFound

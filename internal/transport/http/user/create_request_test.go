@@ -30,8 +30,8 @@ func TestNewCreateFormRequestMapsOptionalFields(t *testing.T) {
 	if serviceInput.Email != "person@example.com" {
 		t.Fatalf("Email = %q, want person@example.com", serviceInput.Email)
 	}
-	if serviceInput.Role == nil || *serviceInput.Role != "captain" {
-		t.Fatalf("Role = %v, want captain", serviceInput.Role)
+	if serviceInput.Role != "captain" {
+		t.Fatalf("Role = %q, want captain", serviceInput.Role)
 	}
 	if serviceInput.TeamName == nil || *serviceInput.TeamName != "Backend" {
 		t.Fatalf("TeamName = %v, want Backend", serviceInput.TeamName)

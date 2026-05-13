@@ -7,7 +7,7 @@ import (
 type CreateUserInput struct {
 	Email     string
 	Password  string
-	Role      *string
+	Role      string
 	TeamName  *string
 	FirstName string
 	LastName  string
