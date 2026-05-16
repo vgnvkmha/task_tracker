@@ -8,6 +8,8 @@ import (
 	"time"
 
 	userApplication "task_tracker/internal/application/user"
+
+	"github.com/google/uuid"
 )
 
 var (
@@ -131,4 +133,72 @@ func NewLoginFormRequest(r *http.Request) (LoginFormRequest, error) {
 	}
 
 	return request, nil
+}
+
+type UpdateProfileFormRequest struct {
+	UserID    uuid.UUID
+	Email     *string
+	Password  *string
+	FirstName *string
+	LastName  *string
+	Age       *uint8
+	BirthDate *time.Time
+}
+
+func NewUpdateProfileFormRequest(r *http.Request) (UpdateProfileFormRequest, error) {
+	if err := r.ParseForm(); err != nil {
+		return UpdateProfileFormRequest{}, errInvalidForm
+	}
+
+	userID, err := uuid.Parse(strings.TrimSpace(r.PostFormValue("user_id")))
+	if err != nil {
+		return UpdateProfileFormRequest{}, userApplication.ErrInvalidUserID
+	}
+
+	request := UpdateProfileFormRequest{UserID: userID}
+	if value := strings.TrimSpace(r.PostFormValue("email")); value != "" {
+		request.Email = &value
+	}
+	if value := r.PostFormValue("password"); value != "" {
+		request.Password = &value
+	}
+	if value := strings.TrimSpace(r.PostFormValue("first_name")); value != "" {
+		request.FirstName = &value
+	}
+	if value := strings.TrimSpace(r.PostFormValue("last_name")); value != "" {
+		request.LastName = &value
+	}
+
+	ageValue := strings.TrimSpace(r.PostFormValue("age"))
+	if ageValue != "" {
+		age, err := strconv.ParseUint(ageValue, 10, 8)
+		if err != nil {
+			return UpdateProfileFormRequest{}, errInvalidAge
+		}
+		ageUint8 := uint8(age)
+		request.Age = &ageUint8
+	}
+
+	birthDateValue := strings.TrimSpace(r.PostFormValue("birth_date"))
+	if birthDateValue != "" {
+		birthDate, err := time.Parse("2006-01-02", birthDateValue)
+		if err != nil {
+			return UpdateProfileFormRequest{}, errInvalidBirthDate
+		}
+		request.BirthDate = &birthDate
+	}
+
+	return request, nil
+}
+
+func (r UpdateProfileFormRequest) ToServiceInput() userApplication.UpdateUserInput {
+	return userApplication.UpdateUserInput{
+		UserID:    r.UserID,
+		Email:     r.Email,
+		Password:  r.Password,
+		FirstName: r.FirstName,
+		LastName:  r.LastName,
+		Age:       r.Age,
+		BirthDate: r.BirthDate,
+	}
 }

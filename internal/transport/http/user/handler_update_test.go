@@ -65,6 +65,10 @@ func (s *fakeUserService) GetByID(ctx context.Context, id uuid.UUID) (*userAppli
 	return nil, nil
 }
 
+func (s *fakeUserService) GetProfileByID(ctx context.Context, id uuid.UUID) (*userApplication.Profile, error) {
+	return nil, nil
+}
+
 func (s *fakeUserService) ListActive(ctx context.Context) ([]*userApplication.User, error) {
 	return nil, nil
 }

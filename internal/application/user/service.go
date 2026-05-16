@@ -29,6 +29,7 @@ type UserService interface {
 	Login(ctx context.Context, email string, password string) (*User, error)
 
 	GetByID(ctx context.Context, id uuid.UUID) (*User, error)
+	GetProfileByID(ctx context.Context, id uuid.UUID) (*Profile, error)
 
 	ListActive(ctx context.Context) ([]*User, error)
 	List(ctx context.Context) ([]*User, error)
@@ -398,6 +399,36 @@ func (s *service) GetByID(ctx context.Context, id uuid.UUID) (*User, error) {
 	return result, nil
 }
 
+func (s *service) GetProfileByID(ctx context.Context, id uuid.UUID) (*Profile, error) {
+	var result *Profile
+	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
+		foundUser, err := s.userRepo.GetByID(ctx, id)
+		if err != nil {
+			return mapGetError(err)
+		}
+
+		pd, err := s.dataRepo.Get(ctx, foundUser.PersonalDataID)
+		if err != nil {
+			return ErrPersonalDataNotFound
+		}
+
+		result = &Profile{
+			User:         foundUser,
+			PersonalData: pd,
+		}
+		return nil
+	})
+
+	if err != nil {
+		logFailure(s.logger, "get profile by ID operation failed", err,
+			"operation", "get_profile_by_id",
+			"id", id,
+		)
+		return nil, err
+	}
+	return result, nil
+}
+
 func (s *service) ListActive(ctx context.Context) ([]*User, error) {
 	var result []*User
 	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
@@ -441,7 +472,7 @@ func (s *service) List(ctx context.Context) ([]*User, error) {
 func (s *service) DeleteByID(ctx context.Context, actor auth.Actor, id uuid.UUID) error {
 	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
 
-		if !actor.Role.IsManagerRole() {
+		if !actor.Role.IsManagerRole() && actor.ID != id {
 			return ErrOnlyManagersCanModify
 		}
 

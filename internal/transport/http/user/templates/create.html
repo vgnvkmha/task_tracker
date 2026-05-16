@@ -371,7 +371,7 @@
 </head>
 <body>
   <main>
-    <h1>{{ .message }}</h1>
+    <h1>{{ if .error }}{{ .error }}{{ else }}{{ .message }}{{ end }}</h1>
   </main>
 </body>
 </html>

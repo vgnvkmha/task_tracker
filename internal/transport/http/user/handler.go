@@ -2,8 +2,10 @@ package user
 
 import (
 	"net/http"
+	"net/url"
 	user_application "task_tracker/internal/application/user"
 	"task_tracker/internal/common_errors"
+	"task_tracker/internal/domain/auth"
 	"task_tracker/internal/transport/http/middleware"
 
 	"github.com/gin-gonic/gin"
@@ -13,8 +15,11 @@ import (
 type UserHandler interface {
 	ShowCreateForm(c *gin.Context)
 	ShowAuthSuccess(c *gin.Context)
+	ShowCabinet(c *gin.Context)
 	SubmitCreateForm(c *gin.Context)
 	SubmitLoginForm(c *gin.Context)
+	UpdateCabinet(c *gin.Context)
+	DeleteCabinet(c *gin.Context)
 	CreateRegister(c *gin.Context)
 	CreateByActor(c *gin.Context)
 	Update(c *gin.Context)
@@ -42,8 +47,11 @@ func (h *handler) ShowCreateForm(c *gin.Context) {
 
 func (h *handler) ShowAuthSuccess(c *gin.Context) {
 	message := "Успешная регистрация"
-	if c.Query("type") == "login" {
+	switch c.Query("type") {
+	case "login":
 		message = "Успешный логин"
+	case "delete":
+		message = "Пользователь удален"
 	}
 
 	c.HTML(http.StatusOK, "user_auth_success_page", gin.H{
@@ -62,7 +70,7 @@ func (h *handler) SubmitCreateForm(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
-	_, err = h.service.CreateRegister(ctx, input.ToServiceInput())
+	createdUser, err := h.service.CreateRegister(ctx, input.ToServiceInput())
 	if err != nil {
 		c.HTML(http.StatusOK, "user_create_result", gin.H{
 			"error": mapUIError(err),
@@ -70,7 +78,7 @@ func (h *handler) SubmitCreateForm(c *gin.Context) {
 		return
 	}
 
-	redirectAuthSuccess(c, "register", http.StatusCreated)
+	redirectUI(c, cabinetURL(createdUser.ID.String(), "registered", ""), http.StatusCreated)
 }
 
 func (h *handler) SubmitLoginForm(c *gin.Context) {
@@ -83,7 +91,7 @@ func (h *handler) SubmitLoginForm(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
-	_, err = h.service.Login(ctx, input.Email, input.Password)
+	loggedUser, err := h.service.Login(ctx, input.Email, input.Password)
 	if err != nil {
 		c.HTML(http.StatusOK, "user_create_result", gin.H{
 			"error": mapUIError(err),
@@ -91,11 +99,10 @@ func (h *handler) SubmitLoginForm(c *gin.Context) {
 		return
 	}
 
-	redirectAuthSuccess(c, "login", http.StatusOK)
+	redirectUI(c, cabinetURL(loggedUser.ID.String(), "login", ""), http.StatusOK)
 }
 
-func redirectAuthSuccess(c *gin.Context, authType string, status int) {
-	location := "/ui/users/success?type=" + authType
+func redirectUI(c *gin.Context, location string, status int) {
 	if c.GetHeader("HX-Request") == "true" {
 		c.Header("HX-Redirect", location)
 		c.Status(status)
@@ -103,6 +110,119 @@ func redirectAuthSuccess(c *gin.Context, authType string, status int) {
 	}
 
 	c.Redirect(http.StatusSeeOther, location)
+}
+
+func (h *handler) ShowCabinet(c *gin.Context) {
+	id, err := uuid.Parse(c.Query("user_id"))
+	if err != nil {
+		c.HTML(http.StatusUnprocessableEntity, "user_auth_success_page", gin.H{
+			"title": "Ошибка",
+			"error": mapUIError(user_application.ErrInvalidUserID),
+		})
+		return
+	}
+
+	profile, err := h.service.GetProfileByID(c.Request.Context(), id)
+	if err != nil {
+		c.HTML(http.StatusOK, "user_create_result", gin.H{
+			"error": mapUIError(err),
+		})
+		return
+	}
+
+	renderCabinet(c, profile, cabinetMessage(c.Query("message")), c.Query("error"))
+}
+
+func (h *handler) UpdateCabinet(c *gin.Context) {
+	input, err := NewUpdateProfileFormRequest(c.Request)
+	if err != nil {
+		c.HTML(http.StatusOK, "user_create_result", gin.H{
+			"error": mapUIFormError(err),
+		})
+		return
+	}
+
+	profile, err := h.service.GetProfileByID(c.Request.Context(), input.UserID)
+	if err != nil {
+		c.HTML(http.StatusOK, "user_create_result", gin.H{
+			"error": mapUIError(err),
+		})
+		return
+	}
+
+	actor := auth.Actor{
+		ID:   profile.User.ID,
+		Role: profile.User.Role,
+	}
+	if _, err := h.service.Update(c.Request.Context(), actor, input.ToServiceInput()); err != nil {
+		redirectUI(c, cabinetURL(input.UserID.String(), "", mapUIError(err)), http.StatusSeeOther)
+		return
+	}
+
+	redirectUI(c, cabinetURL(input.UserID.String(), "updated", ""), http.StatusSeeOther)
+}
+
+func (h *handler) DeleteCabinet(c *gin.Context) {
+	userID, err := uuid.Parse(c.PostForm("user_id"))
+	if err != nil {
+		c.HTML(http.StatusUnprocessableEntity, "user_create_result", gin.H{
+			"error": mapUIError(user_application.ErrInvalidUserID),
+		})
+		return
+	}
+
+	profile, err := h.service.GetProfileByID(c.Request.Context(), userID)
+	if err != nil {
+		c.HTML(http.StatusOK, "user_create_result", gin.H{
+			"error": mapUIError(err),
+		})
+		return
+	}
+
+	actor := auth.Actor{
+		ID:   profile.User.ID,
+		Role: profile.User.Role,
+	}
+	if err := h.service.DeleteByID(c.Request.Context(), actor, userID); err != nil {
+		redirectUI(c, cabinetURL(userID.String(), "", mapUIError(err)), http.StatusSeeOther)
+		return
+	}
+
+	redirectUI(c, "/ui/users/success?type=delete", http.StatusSeeOther)
+}
+
+func renderCabinet(c *gin.Context, profile *user_application.Profile, message string, errorMessage string) {
+	c.HTML(http.StatusOK, "user_cabinet_page", gin.H{
+		"title":   "Личный кабинет",
+		"profile": NewCabinetView(profile),
+		"message": message,
+		"error":   errorMessage,
+	})
+}
+
+func cabinetMessage(value string) string {
+	switch value {
+	case "registered":
+		return "Успешная регистрация"
+	case "login":
+		return "Успешный логин"
+	case "updated":
+		return "Данные обновлены"
+	default:
+		return ""
+	}
+}
+
+func cabinetURL(userID string, message string, errorMessage string) string {
+	values := url.Values{}
+	values.Set("user_id", userID)
+	if message != "" {
+		values.Set("message", message)
+	}
+	if errorMessage != "" {
+		values.Set("error", errorMessage)
+	}
+	return "/ui/users/cabinet?" + values.Encode()
 }
 
 func (h *handler) CreateRegister(c *gin.Context) {
