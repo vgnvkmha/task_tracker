@@ -8,7 +8,7 @@ import (
 )
 
 type UpdateRequest struct {
-	UserID string `json:"user_id"`
+	UserID string `json:"user_id" binding:"required"`
 
 	Email     *string `json:"email"`
 	Password  *string `json:"password"`

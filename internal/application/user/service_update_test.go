@@ -237,6 +237,107 @@ func TestServiceUpdateAppliesTeamID(t *testing.T) {
 	}
 }
 
+func TestServiceUpdateAllowsSelfUpdateForNonManager(t *testing.T) {
+	svc, users, data, _ := newUpdateTestService()
+	existing := addUserFixture(t, users, data, nil, valueobjects.User)
+	firstName := "Self"
+
+	updated, err := svc.Update(context.Background(), auth.Actor{
+		ID:   existing.ID,
+		Role: valueobjects.User,
+	}, UpdateUserInput{
+		UserID:    existing.ID,
+		FirstName: &firstName,
+	})
+	if err != nil {
+		t.Fatalf("Update returned error: %v", err)
+	}
+	if updated.ID != existing.ID {
+		t.Fatalf("updated id = %s, want %s", updated.ID, existing.ID)
+	}
+	if data.updated == nil || data.updated.FirstName != firstName {
+		t.Fatal("self update did not update personal data")
+	}
+}
+
+func TestServiceUpdateRejectsNonManagerUpdatingAnotherUser(t *testing.T) {
+	svc, users, data, _ := newUpdateTestService()
+	existing := addUserFixture(t, users, data, nil, valueobjects.User)
+	firstName := "Other"
+
+	updated, err := svc.Update(context.Background(), auth.Actor{
+		ID:   uuid.New(),
+		Role: valueobjects.User,
+	}, UpdateUserInput{
+		UserID:    existing.ID,
+		FirstName: &firstName,
+	})
+	if !errors.Is(err, ErrOnlyManagersCanModify) {
+		t.Fatalf("Update error = %v, want ErrOnlyManagersCanModify", err)
+	}
+	if updated != nil {
+		t.Fatalf("updated = %#v, want nil", updated)
+	}
+	if data.updated != nil {
+		t.Fatal("personal data should not be updated")
+	}
+	if users.updated != nil {
+		t.Fatal("user repo Update should not be called")
+	}
+}
+
+func TestServiceUpdateRejectsNonManagerSelfRoleUpdate(t *testing.T) {
+	svc, users, data, _ := newUpdateTestService()
+	existing := addUserFixture(t, users, data, nil, valueobjects.User)
+	role := string(valueobjects.Admin)
+
+	updated, err := svc.Update(context.Background(), auth.Actor{
+		ID:   existing.ID,
+		Role: valueobjects.User,
+	}, UpdateUserInput{
+		UserID: existing.ID,
+		Role:   &role,
+	})
+	if !errors.Is(err, ErrOnlyManagersCanModify) {
+		t.Fatalf("Update error = %v, want ErrOnlyManagersCanModify", err)
+	}
+	if updated != nil {
+		t.Fatalf("updated = %#v, want nil", updated)
+	}
+	if data.updated != nil {
+		t.Fatal("personal data should not be updated")
+	}
+	if users.updated != nil {
+		t.Fatal("user repo Update should not be called")
+	}
+}
+
+func TestServiceUpdateRejectsNonManagerSelfTeamIDUpdate(t *testing.T) {
+	svc, users, data, _ := newUpdateTestService()
+	existing := addUserFixture(t, users, data, nil, valueobjects.User)
+	teamID := uuid.New()
+
+	updated, err := svc.Update(context.Background(), auth.Actor{
+		ID:   existing.ID,
+		Role: valueobjects.User,
+	}, UpdateUserInput{
+		UserID: existing.ID,
+		TeamId: &teamID,
+	})
+	if !errors.Is(err, ErrOnlyManagersCanModify) {
+		t.Fatalf("Update error = %v, want ErrOnlyManagersCanModify", err)
+	}
+	if updated != nil {
+		t.Fatalf("updated = %#v, want nil", updated)
+	}
+	if data.updated != nil {
+		t.Fatal("personal data should not be updated")
+	}
+	if users.updated != nil {
+		t.Fatal("user repo Update should not be called")
+	}
+}
+
 func TestServiceUpdateReturnsAlreadyExistsForDuplicateEmail(t *testing.T) {
 	svc, users, data, _ := newUpdateTestService()
 	existing := addUserFixture(t, users, data, nil, valueobjects.User)

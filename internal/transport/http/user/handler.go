@@ -121,18 +121,18 @@ func (h *handler) CreateByActor(c *gin.Context) {
 }
 
 func (h *handler) Update(c *gin.Context) {
-	actor, ok := middleware.GetActor(c)
-	if !ok || actor.Role == " " { //TODO: remove empty role check
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"error": common_errors.ErrUnauthorized.Error(),
-		})
-		return
-	}
-
 	var input UpdateRequest
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": common_errors.ErrBadRequest.Error(),
+		})
+		return
+	}
+
+	actor, ok := middleware.GetActor(c)
+	if !ok {
+		c.JSON(http.StatusForbidden, gin.H{
+			"error": common_errors.ErrPermissionDenied.Error(),
 		})
 		return
 	}
@@ -142,6 +142,21 @@ func (h *handler) Update(c *gin.Context) {
 		status, msg := mapError(err)
 		c.JSON(status, gin.H{
 			"error": msg,
+		})
+		return
+	}
+
+	isManager := actor.Role.IsManagerRole()
+	isSelf := actor.ID == inputModel.UserID
+	if !isManager && !isSelf {
+		c.JSON(http.StatusForbidden, gin.H{
+			"error": common_errors.ErrPermissionDenied.Error(),
+		})
+		return
+	}
+	if !isManager && (input.Role != nil || input.TeamID != nil) {
+		c.JSON(http.StatusForbidden, gin.H{
+			"error": common_errors.ErrPermissionDenied.Error(),
 		})
 		return
 	}

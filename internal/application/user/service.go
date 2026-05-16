@@ -208,7 +208,12 @@ func (s *service) Update(ctx context.Context, actor auth.Actor, userInput Update
 	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
 
 		if !actor.Role.IsManagerRole() {
-			return ErrOnlyManagersCanModify
+			if actor.ID != userInput.UserID {
+				return ErrOnlyManagersCanModify
+			}
+			if userInput.Role != nil || userInput.TeamId != nil || userInput.TeamName != nil {
+				return ErrOnlyManagersCanModify
+			}
 		}
 
 		existingUser, err := s.userRepo.GetByID(ctx, userInput.UserID)
