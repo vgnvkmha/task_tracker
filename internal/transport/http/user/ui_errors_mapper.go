@@ -5,6 +5,7 @@ import (
 
 	userApplication "task_tracker/internal/application/user"
 	"task_tracker/internal/common_errors"
+	personaldata "task_tracker/internal/domain/personal_data"
 	domainUser "task_tracker/internal/domain/user"
 	valueobjects "task_tracker/internal/domain/value_objects"
 )
@@ -20,6 +21,18 @@ func mapUIError(err error) string {
 	case errors.Is(err, userApplication.ErrInvalidBirthDate):
 		return "Некорректная дата рождения."
 
+	case errors.Is(err, personaldata.ErrBirthDateTooOld):
+		return "Дата рождения не может быть раньше 01.01.1800."
+
+	case errors.Is(err, personaldata.ErrInvalidBirthDate):
+		return "Дата рождения не может быть в будущем."
+
+	case errors.Is(err, personaldata.ErrInvalidFirstName):
+		return "Имя не должно содержать цифры."
+
+	case errors.Is(err, personaldata.ErrInvalidLastName):
+		return "Фамилия не должна содержать цифры."
+
 	case errors.Is(err, valueobjects.ErrInvalidEmail):
 		return "Введите корректный email."
 
@@ -33,6 +46,9 @@ func mapUIError(err error) string {
 		errors.Is(err, common_errors.ErrNotFound),
 		errors.Is(err, domainUser.ErrNotFound):
 		return "Пользователь не найден."
+
+	case errors.Is(err, userApplication.ErrInvalidCredentials):
+		return "Неверная электронная почта или пароль."
 
 	case errors.Is(err, userApplication.ErrPersonalDataNotFound):
 		return "Персональные данные не найдены."
@@ -64,7 +80,7 @@ func mapUIError(err error) string {
 		return "Заполните персональные данные пользователя."
 
 	default:
-		return "Не удалось создать пользователя. Попробуйте еще раз."
+		return "Не удалось выполнить действие. Попробуйте еще раз."
 	}
 }
 
@@ -77,7 +93,9 @@ func mapUIFormError(err error) string {
 	case errInvalidBirthDate:
 		return "Дата рождения должна быть в формате ГГГГ-ММ-ДД."
 	case errRequiredFieldsMissing:
-		return "Заполните обязательные поля: email, пароль, роль, имя и фамилию."
+		return "Заполните обязательные поля: электронную почту, пароль, роль, имя и фамилию."
+	case errLoginFieldsMissing:
+		return "Введите электронную почту и пароль."
 	default:
 		return "Проверьте данные формы."
 	}

@@ -57,6 +57,10 @@ func (s *fakeUserService) Update(ctx context.Context, actor auth.Actor, input us
 	}, nil
 }
 
+func (s *fakeUserService) Login(ctx context.Context, email string, password string) (*userApplication.User, error) {
+	return nil, nil
+}
+
 func (s *fakeUserService) GetByID(ctx context.Context, id uuid.UUID) (*userApplication.User, error) {
 	return nil, nil
 }

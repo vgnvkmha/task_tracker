@@ -17,7 +17,7 @@ func TestMapUIErrorUserAlreadyExists(t *testing.T) {
 
 func TestMapUIFormErrorRequiredFieldsMissing(t *testing.T) {
 	got := mapUIFormError(errRequiredFieldsMissing)
-	want := "Заполните обязательные поля: email, пароль, роль, имя и фамилию."
+	want := "Заполните обязательные поля: электронную почту, пароль, роль, имя и фамилию."
 
 	if got != want {
 		t.Fatalf("mapUIFormError() = %q, want %q", got, want)

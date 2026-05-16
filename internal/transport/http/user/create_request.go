@@ -15,6 +15,7 @@ var (
 	errInvalidAge            = errors.New("invalid age")
 	errInvalidBirthDate      = errors.New("invalid birth date")
 	errRequiredFieldsMissing = errors.New("required fields are missing")
+	errLoginFieldsMissing    = errors.New("login fields are missing")
 )
 
 type CreateRequest struct {
@@ -108,4 +109,26 @@ func (r CreateFormRequest) ToServiceInput() userApplication.CreateUserInput {
 		Age:       r.Age,
 		BirthDate: r.BirthDate,
 	}
+}
+
+type LoginFormRequest struct {
+	Email    string
+	Password string
+}
+
+func NewLoginFormRequest(r *http.Request) (LoginFormRequest, error) {
+	if err := r.ParseForm(); err != nil {
+		return LoginFormRequest{}, errInvalidForm
+	}
+
+	request := LoginFormRequest{
+		Email:    strings.TrimSpace(r.FormValue("email")),
+		Password: r.FormValue("password"),
+	}
+
+	if request.Email == "" || request.Password == "" {
+		return LoginFormRequest{}, errLoginFieldsMissing
+	}
+
+	return request, nil
 }

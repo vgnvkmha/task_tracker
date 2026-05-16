@@ -2,9 +2,12 @@ package personaldata
 
 import (
 	"time"
+	"unicode"
 
 	"github.com/google/uuid"
 )
+
+var minBirthDate = time.Date(1800, time.January, 1, 0, 0, 0, 0, time.UTC)
 
 type PersonalData struct {
 	Id        uuid.UUID
@@ -15,15 +18,8 @@ type PersonalData struct {
 }
 
 func New(firstName, lastName string, birthDate *time.Time, age *uint8) (*PersonalData, error) {
-	if firstName == "" {
-		return nil, ErrFirstNameRequired
-	}
-	if lastName == "" {
-		return nil, ErrLastNameRequired
-	}
-
-	if birthDate != nil && birthDate.After(time.Now()) {
-		return nil, ErrInvalidBirthDate
+	if err := validate(firstName, lastName, birthDate); err != nil {
+		return nil, err
 	}
 
 	return &PersonalData{
@@ -36,14 +32,37 @@ func New(firstName, lastName string, birthDate *time.Time, age *uint8) (*Persona
 }
 
 func (data *PersonalData) Validate() error {
-	if data.FirstName == "" {
+	return validate(data.FirstName, data.LastName, data.BirthDate)
+}
+
+func validate(firstName, lastName string, birthDate *time.Time) error {
+	if firstName == "" {
 		return ErrFirstNameRequired
 	}
-	if data.LastName == "" {
+	if lastName == "" {
 		return ErrLastNameRequired
 	}
-	if data.BirthDate != nil && data.BirthDate.After(time.Now()) {
+	if hasDigit(firstName) {
+		return ErrInvalidFirstName
+	}
+	if hasDigit(lastName) {
+		return ErrInvalidLastName
+	}
+
+	if birthDate != nil && birthDate.After(time.Now()) {
 		return ErrInvalidBirthDate
 	}
+	if birthDate != nil && birthDate.Before(minBirthDate) {
+		return ErrBirthDateTooOld
+	}
 	return nil
+}
+
+func hasDigit(value string) bool {
+	for _, r := range value {
+		if unicode.IsDigit(r) {
+			return true
+		}
+	}
+	return false
 }

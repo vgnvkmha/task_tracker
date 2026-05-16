@@ -12,7 +12,9 @@ import (
 
 type UserHandler interface {
 	ShowCreateForm(c *gin.Context)
+	ShowAuthSuccess(c *gin.Context)
 	SubmitCreateForm(c *gin.Context)
+	SubmitLoginForm(c *gin.Context)
 	CreateRegister(c *gin.Context)
 	CreateByActor(c *gin.Context)
 	Update(c *gin.Context)
@@ -34,7 +36,19 @@ func New(service user_application.UserService) UserHandler {
 
 func (h *handler) ShowCreateForm(c *gin.Context) {
 	c.HTML(http.StatusOK, "user_create_page", gin.H{
-		"title": "Create user",
+		"title": "Вход или регистрация",
+	})
+}
+
+func (h *handler) ShowAuthSuccess(c *gin.Context) {
+	message := "Успешная регистрация"
+	if c.Query("type") == "login" {
+		message = "Успешный логин"
+	}
+
+	c.HTML(http.StatusOK, "user_auth_success_page", gin.H{
+		"title":   message,
+		"message": message,
 	})
 }
 
@@ -48,7 +62,7 @@ func (h *handler) SubmitCreateForm(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
-	createdUser, err := h.service.CreateRegister(ctx, input.ToServiceInput())
+	_, err = h.service.CreateRegister(ctx, input.ToServiceInput())
 	if err != nil {
 		c.HTML(http.StatusOK, "user_create_result", gin.H{
 			"error": mapUIError(err),
@@ -56,9 +70,39 @@ func (h *handler) SubmitCreateForm(c *gin.Context) {
 		return
 	}
 
-	c.HTML(http.StatusCreated, "user_create_result", gin.H{
-		"user": FromDomain(createdUser),
-	})
+	redirectAuthSuccess(c, "register", http.StatusCreated)
+}
+
+func (h *handler) SubmitLoginForm(c *gin.Context) {
+	input, err := NewLoginFormRequest(c.Request)
+	if err != nil {
+		c.HTML(http.StatusOK, "user_create_result", gin.H{
+			"error": mapUIFormError(err),
+		})
+		return
+	}
+
+	ctx := c.Request.Context()
+	_, err = h.service.Login(ctx, input.Email, input.Password)
+	if err != nil {
+		c.HTML(http.StatusOK, "user_create_result", gin.H{
+			"error": mapUIError(err),
+		})
+		return
+	}
+
+	redirectAuthSuccess(c, "login", http.StatusOK)
+}
+
+func redirectAuthSuccess(c *gin.Context, authType string, status int) {
+	location := "/ui/users/success?type=" + authType
+	if c.GetHeader("HX-Request") == "true" {
+		c.Header("HX-Redirect", location)
+		c.Status(status)
+		return
+	}
+
+	c.Redirect(http.StatusSeeOther, location)
 }
 
 func (h *handler) CreateRegister(c *gin.Context) {

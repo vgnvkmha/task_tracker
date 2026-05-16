@@ -9,6 +9,7 @@ var (
 	ErrOnlyManagersCanModify = errors.New("only managers can modify users")
 	ErrUserNotFound          = errors.New("user not found")
 	ErrUserUpdateFailed      = errors.New("user update failed")
+	ErrInvalidCredentials    = errors.New("invalid credentials")
 	ErrConflict              = errors.New("Conflict with user")
 	ErrUserAlreadyDeleted    = errors.New("user already was deleted")
 

@@ -26,6 +26,7 @@ type UserService interface {
 	CreateRegister(ctx context.Context, userInput CreateUserInput) (*User, error)
 	CreateByActor(ctx context.Context, actor auth.Actor, userInput CreateUserInput) (*User, error)
 	Update(ctx context.Context, actor auth.Actor, userInput UpdateUserInput) (*User, error)
+	Login(ctx context.Context, email string, password string) (*User, error)
 
 	GetByID(ctx context.Context, id uuid.UUID) (*User, error)
 
@@ -346,6 +347,34 @@ func (s *service) Update(ctx context.Context, actor auth.Actor, userInput Update
 	)
 
 	return updatedUser, nil
+}
+
+func (s *service) Login(ctx context.Context, email string, password string) (*User, error) {
+	foundUser, err := s.userRepo.GetByEmail(ctx, email)
+	if err != nil {
+		logFailure(s.logger, "get user by email failed", err,
+			"operation", "login",
+			"email", email,
+		)
+		return nil, ErrInvalidCredentials
+	}
+
+	if !foundUser.Password.Compare(password) {
+		logFailure(s.logger, "password check failed", nil,
+			"operation", "login",
+			"email", email,
+			"user_id", foundUser.ID,
+		)
+		return nil, ErrInvalidCredentials
+	}
+
+	logSuccess(s.logger,
+		"operation", "login",
+		"user_id", foundUser.ID,
+		"email", foundUser.Email,
+	)
+
+	return foundUser, nil
 }
 
 func (s *service) GetByID(ctx context.Context, id uuid.UUID) (*User, error) {

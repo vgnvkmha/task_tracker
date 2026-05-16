@@ -5,6 +5,7 @@ import (
 	"net/http"
 	userApplication "task_tracker/internal/application/user"
 	"task_tracker/internal/common_errors"
+	personaldata "task_tracker/internal/domain/personal_data"
 	domainUser "task_tracker/internal/domain/user"
 	valueobjects "task_tracker/internal/domain/value_objects"
 )
@@ -20,6 +21,16 @@ func mapError(err error) (int, string) {
 
 	case errors.Is(err, userApplication.ErrInvalidBirthDate):
 		return http.StatusUnprocessableEntity, "invalid birth_date"
+
+	case errors.Is(err, personaldata.ErrBirthDateTooOld),
+		errors.Is(err, personaldata.ErrInvalidBirthDate):
+		return http.StatusUnprocessableEntity, "invalid birth_date"
+
+	case errors.Is(err, personaldata.ErrInvalidFirstName):
+		return http.StatusUnprocessableEntity, "invalid first_name"
+
+	case errors.Is(err, personaldata.ErrInvalidLastName):
+		return http.StatusUnprocessableEntity, "invalid last_name"
 
 	case errors.Is(err, valueobjects.ErrInvalidEmail):
 		return http.StatusUnprocessableEntity, "invalid email"

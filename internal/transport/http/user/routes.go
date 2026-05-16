@@ -10,7 +10,9 @@ import (
 func RegisterRoutes(r *gin.Engine, h UserHandler) {
 	ui := r.Group("/ui/users")
 	ui.GET("/create", h.ShowCreateForm)
+	ui.GET("/success", h.ShowAuthSuccess)
 	ui.POST("", h.SubmitCreateForm)
+	ui.GET("/login", h.SubmitLoginForm)
 
 	user := r.Group("/user", middleware.ActorMiddleware())
 	fmt.Println("REGISTER ROUTES")
