@@ -6,7 +6,9 @@ import (
 	user_application "task_tracker/internal/application/user"
 	"task_tracker/internal/common_errors"
 	"task_tracker/internal/domain/auth"
+	valueobjects "task_tracker/internal/domain/value_objects"
 	"task_tracker/internal/transport/http/middleware"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -31,18 +33,41 @@ type UserHandler interface {
 
 type handler struct {
 	service user_application.UserService
+	tokens  TokenGenerator
 }
 
-func New(service user_application.UserService) UserHandler {
+type TokenGenerator interface {
+	GenerateAccessToken(userID uuid.UUID, role valueobjects.Role, teamID *uuid.UUID) (string, auth.TokenClaims, error)
+}
+
+func New(service user_application.UserService, tokens ...TokenGenerator) UserHandler {
+	var tokenGenerator TokenGenerator
+	if len(tokens) > 0 {
+		tokenGenerator = tokens[0]
+	}
+
 	return &handler{
 		service: service,
+		tokens:  tokenGenerator,
 	}
 }
 
 func (h *handler) ShowCreateForm(c *gin.Context) {
 	c.HTML(http.StatusOK, "user_create_page", gin.H{
-		"title": "Вход или регистрация",
+		"title":        "Вход или регистрация",
+		"auth_message": authMessage(c.Query("auth")),
 	})
+}
+
+func authMessage(value string) string {
+	switch value {
+	case "expired":
+		return "Сессия истекла. Войдите снова."
+	case "required":
+		return "Для доступа к кабинету пользователя нужно войти."
+	default:
+		return ""
+	}
 }
 
 func (h *handler) ShowAuthSuccess(c *gin.Context) {
@@ -99,6 +124,17 @@ func (h *handler) SubmitLoginForm(c *gin.Context) {
 		return
 	}
 
+	if h.tokens != nil {
+		token, claims, err := h.tokens.GenerateAccessToken(loggedUser.ID, loggedUser.Role, loggedUser.TeamID)
+		if err != nil {
+			c.HTML(http.StatusOK, "user_create_result", gin.H{
+				"error": "Не удалось создать сессию",
+			})
+			return
+		}
+		setAccessTokenCookie(c, token, claims.ExpiresAtTime())
+	}
+
 	redirectUI(c, cabinetURL(loggedUser.ID.String(), "login", ""), http.StatusOK)
 }
 
@@ -112,17 +148,55 @@ func redirectUI(c *gin.Context, location string, status int) {
 	c.Redirect(http.StatusSeeOther, location)
 }
 
+func setAccessTokenCookie(c *gin.Context, token string, expiresAt time.Time) {
+	maxAge := int(time.Until(expiresAt).Seconds())
+	if maxAge < 0 {
+		maxAge = 0
+	}
+
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "access_token",
+		Value:    token,
+		Path:     "/",
+		MaxAge:   maxAge,
+		Expires:  expiresAt,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
 func (h *handler) ShowCabinet(c *gin.Context) {
-	id, err := uuid.Parse(c.Query("user_id"))
-	if err != nil {
-		c.HTML(http.StatusUnprocessableEntity, "user_auth_success_page", gin.H{
+	actor, ok := middleware.GetActor(c)
+	if !ok {
+		c.HTML(http.StatusUnauthorized, "user_auth_success_page", gin.H{
 			"title": "Ошибка",
-			"error": mapUIError(user_application.ErrInvalidUserID),
+			"error": common_errors.ErrUnauthorized.Error(),
 		})
 		return
 	}
 
-	profile, err := h.service.GetProfileByID(c.Request.Context(), id)
+	userID := actor.ID
+	if rawUserID := c.Query("user_id"); rawUserID != "" {
+		id, err := uuid.Parse(rawUserID)
+		if err != nil {
+			c.HTML(http.StatusUnprocessableEntity, "user_auth_success_page", gin.H{
+				"title": "Ошибка",
+				"error": mapUIError(user_application.ErrInvalidUserID),
+			})
+			return
+		}
+		if id != actor.ID {
+			c.HTML(http.StatusForbidden, "user_auth_success_page", gin.H{
+				"title": "Ошибка",
+				"error": common_errors.ErrPermissionDenied.Error(),
+			})
+			return
+		}
+		userID = id
+	}
+
+	profile, err := h.service.GetProfileByID(c.Request.Context(), userID)
 	if err != nil {
 		c.HTML(http.StatusOK, "user_create_result", gin.H{
 			"error": mapUIError(err),
@@ -134,10 +208,25 @@ func (h *handler) ShowCabinet(c *gin.Context) {
 }
 
 func (h *handler) UpdateCabinet(c *gin.Context) {
+	actor, ok := middleware.GetActor(c)
+	if !ok {
+		c.HTML(http.StatusUnauthorized, "user_create_result", gin.H{
+			"error": common_errors.ErrUnauthorized.Error(),
+		})
+		return
+	}
+
 	input, err := NewUpdateProfileFormRequest(c.Request)
 	if err != nil {
 		c.HTML(http.StatusOK, "user_create_result", gin.H{
 			"error": mapUIFormError(err),
+		})
+		return
+	}
+
+	if actor.ID != input.UserID {
+		c.HTML(http.StatusForbidden, "user_create_result", gin.H{
+			"error": common_errors.ErrPermissionDenied.Error(),
 		})
 		return
 	}
@@ -150,11 +239,11 @@ func (h *handler) UpdateCabinet(c *gin.Context) {
 		return
 	}
 
-	actor := auth.Actor{
+	updateActor := auth.Actor{
 		ID:   profile.User.ID,
 		Role: profile.User.Role,
 	}
-	if _, err := h.service.Update(c.Request.Context(), actor, input.ToServiceInput()); err != nil {
+	if _, err := h.service.Update(c.Request.Context(), updateActor, input.ToServiceInput()); err != nil {
 		redirectUI(c, cabinetURL(input.UserID.String(), "", mapUIError(err)), http.StatusSeeOther)
 		return
 	}
@@ -163,10 +252,25 @@ func (h *handler) UpdateCabinet(c *gin.Context) {
 }
 
 func (h *handler) DeleteCabinet(c *gin.Context) {
+	actor, ok := middleware.GetActor(c)
+	if !ok {
+		c.HTML(http.StatusUnauthorized, "user_create_result", gin.H{
+			"error": common_errors.ErrUnauthorized.Error(),
+		})
+		return
+	}
+
 	userID, err := uuid.Parse(c.PostForm("user_id"))
 	if err != nil {
 		c.HTML(http.StatusUnprocessableEntity, "user_create_result", gin.H{
 			"error": mapUIError(user_application.ErrInvalidUserID),
+		})
+		return
+	}
+
+	if actor.ID != userID {
+		c.HTML(http.StatusForbidden, "user_create_result", gin.H{
+			"error": common_errors.ErrPermissionDenied.Error(),
 		})
 		return
 	}
@@ -179,11 +283,11 @@ func (h *handler) DeleteCabinet(c *gin.Context) {
 		return
 	}
 
-	actor := auth.Actor{
+	deleteActor := auth.Actor{
 		ID:   profile.User.ID,
 		Role: profile.User.Role,
 	}
-	if err := h.service.DeleteByID(c.Request.Context(), actor, userID); err != nil {
+	if err := h.service.DeleteByID(c.Request.Context(), deleteActor, userID); err != nil {
 		redirectUI(c, cabinetURL(userID.String(), "", mapUIError(err)), http.StatusSeeOther)
 		return
 	}

@@ -6,12 +6,14 @@ import (
 	"task_tracker/internal/application/user"
 	"task_tracker/internal/configs"
 	"task_tracker/internal/domain/logger"
+	infraauth "task_tracker/internal/infrastracture/auth"
 	"task_tracker/internal/infrastracture/db"
 
 	// task_handler "task_tracker/internal/handler/task"
 	team_application "task_tracker/internal/application/team"
 	"task_tracker/internal/repo/team"
 	userRepo "task_tracker/internal/repo/user"
+	auth_handler "task_tracker/internal/transport/http/auth"
 	"task_tracker/internal/transport/http/middleware"
 	team_handler "task_tracker/internal/transport/http/team"
 	handler_user "task_tracker/internal/transport/http/user"
@@ -21,6 +23,14 @@ import (
 
 func Run() error {
 	postgresCfg, err := configs.LoadPostgres()
+	if err != nil {
+		return err
+	}
+	authCfg, err := configs.LoadAuth()
+	if err != nil {
+		return err
+	}
+	jwtService, err := infraauth.NewJWTService(authCfg.JWTSecret, authCfg.AccessTokenTTL)
 	if err != nil {
 		return err
 	}
@@ -44,7 +54,8 @@ func Run() error {
 
 	txManager := db.NewTxManager(pDb)
 	userService := user.New(usersRepo, personalDataRepo, teamRepo, logger, txManager)
-	userHandler := handler_user.New(userService)
+	userHandler := handler_user.New(userService, jwtService)
+	authHandler := auth_handler.New(userService, jwtService)
 
 	teamService := team_application.New(teamRepo, usersRepo, logger, txManager)
 	teamHandler := team_handler.New(teamService)
@@ -55,8 +66,9 @@ func Run() error {
 	router.SetTrustedProxies(nil) //TODO: change later
 	router.SetHTMLTemplate(handler_user.Templates())
 	router.Use(middleware.MockActorMiddleware())
-	handler_user.RegisterRoutes(router, userHandler)
-	team_handler.RegisterRoutes(router, teamHandler)
+	auth_handler.RegisterRoutes(router, authHandler)
+	handler_user.RegisterRoutes(router, userHandler, jwtService, authCfg.LegacyHeadersEnabled)
+	team_handler.RegisterRoutes(router, teamHandler, jwtService, authCfg.LegacyHeadersEnabled)
 	// task_handler.RegisterRoutes(router, handler)
 	return router.RunTLS(":8080", "cert.pem", "key.pem")
 }

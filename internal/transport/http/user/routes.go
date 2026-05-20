@@ -2,22 +2,25 @@ package user
 
 import (
 	"fmt"
+	infraauth "task_tracker/internal/infrastracture/auth"
 	"task_tracker/internal/transport/http/middleware"
 
 	"github.com/gin-gonic/gin"
 )
 
-func RegisterRoutes(r *gin.Engine, h UserHandler) {
+func RegisterRoutes(r *gin.Engine, h UserHandler, tokens *infraauth.JWTService, legacyHeadersEnabled bool) {
 	ui := r.Group("/ui/users")
 	ui.GET("/create", h.ShowCreateForm)
 	ui.GET("/success", h.ShowAuthSuccess)
-	ui.GET("/cabinet", h.ShowCabinet)
 	ui.POST("", h.SubmitCreateForm)
 	ui.GET("/login", h.SubmitLoginForm)
-	ui.POST("/cabinet/update", h.UpdateCabinet)
-	ui.POST("/cabinet/delete", h.DeleteCabinet)
 
-	user := r.Group("/user", middleware.ActorMiddleware())
+	uiAuth := ui.Group("", middleware.UIActorMiddleware(tokens))
+	uiAuth.GET("/cabinet", h.ShowCabinet)
+	uiAuth.POST("/cabinet/update", h.UpdateCabinet)
+	uiAuth.POST("/cabinet/delete", h.DeleteCabinet)
+
+	user := r.Group("/user", middleware.ActorMiddleware(tokens, legacyHeadersEnabled))
 	fmt.Println("REGISTER ROUTES")
 
 	user.POST("/create_register", h.CreateRegister)

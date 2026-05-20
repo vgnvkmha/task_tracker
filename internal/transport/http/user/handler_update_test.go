@@ -195,7 +195,7 @@ func TestHandlerUpdateAuthorization(t *testing.T) {
 
 			router := gin.New()
 			if tt.withActor {
-				router.PATCH("/user/update", middleware.ActorMiddleware(), handler.Update)
+				router.PATCH("/user/update", middleware.ActorMiddleware(nil, true), handler.Update)
 			} else {
 				router.PATCH("/user/update", handler.Update)
 			}
