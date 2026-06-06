@@ -190,11 +190,14 @@ func TestUIActorMiddlewareRedirectsToLoginWhenTokenMissing(t *testing.T) {
 
 	router.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusSeeOther {
-		t.Fatalf("status = %d, want %d", rec.Code, http.StatusSeeOther)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 	}
-	if location := rec.Header().Get("Location"); location != "/ui/users/create?auth=required" {
-		t.Fatalf("Location = %q, want /ui/users/create?auth=required", location)
+	if !strings.Contains(rec.Body.String(), `window.location.replace("/ui/users/create?auth=required")`) {
+		t.Fatalf("body = %s, want replace redirect to required login", rec.Body.String())
+	}
+	if cacheControl := rec.Header().Get("Cache-Control"); !strings.Contains(cacheControl, "no-store") {
+		t.Fatalf("Cache-Control = %q, want no-store", cacheControl)
 	}
 }
 
@@ -211,10 +214,10 @@ func TestUIActorMiddlewareRedirectsToLoginWhenTokenExpired(t *testing.T) {
 
 	router.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusSeeOther {
-		t.Fatalf("status = %d, want %d", rec.Code, http.StatusSeeOther)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 	}
-	if location := rec.Header().Get("Location"); location != "/ui/users/create?auth=expired" {
-		t.Fatalf("Location = %q, want /ui/users/create?auth=expired", location)
+	if !strings.Contains(rec.Body.String(), `window.location.replace("/ui/users/create?auth=expired")`) {
+		t.Fatalf("body = %s, want replace redirect to expired login", rec.Body.String())
 	}
 }

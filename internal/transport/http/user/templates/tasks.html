@@ -521,6 +521,12 @@
     </div>
   </main>
   <script>
+    window.addEventListener("pageshow", (event) => {
+      if (event.persisted) {
+        window.location.reload();
+      }
+    });
+
     document.querySelectorAll("[data-edit-task]").forEach((button) => {
       button.addEventListener("click", () => {
         const card = button.closest(".task-item");

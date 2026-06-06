@@ -160,6 +160,10 @@
       background: #24486d;
     }
 
+    .logout-form {
+      margin: 0;
+    }
+
     .danger {
       width: 100%;
       background: #b42318;
@@ -236,7 +240,9 @@
       </div>
       <div class="actions">
         <a class="button secondary" href="/ui/tasks">Задачи</a>
-        <a class="button" href="/ui/users/create">Выйти</a>
+        <form class="logout-form" method="post" action="/ui/users/logout" onsubmit="return confirm('Выйти из аккаунта?');">
+          <button type="submit">Выйти</button>
+        </form>
       </div>
     </header>
 
@@ -325,6 +331,12 @@
   </main>
 
   <script>
+    window.addEventListener("pageshow", (event) => {
+      if (event.persisted) {
+        window.location.reload();
+      }
+    });
+
     document.querySelectorAll("input").forEach((field) => {
       const label = field.closest("label");
       const error = label ? label.querySelector(".field-error") : null;

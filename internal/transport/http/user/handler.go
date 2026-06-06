@@ -20,6 +20,7 @@ type UserHandler interface {
 	ShowCabinet(c *gin.Context)
 	SubmitCreateForm(c *gin.Context)
 	SubmitLoginForm(c *gin.Context)
+	Logout(c *gin.Context)
 	UpdateCabinet(c *gin.Context)
 	DeleteCabinet(c *gin.Context)
 	CreateRegister(c *gin.Context)
@@ -65,6 +66,8 @@ func authMessage(value string) string {
 		return "Сессия истекла. Войдите снова."
 	case "required":
 		return "Для доступа к кабинету пользователя нужно войти."
+	case "logout":
+		return "Вы вышли из аккаунта."
 	default:
 		return ""
 	}
@@ -148,6 +151,12 @@ func redirectUI(c *gin.Context, location string, status int) {
 	c.Redirect(http.StatusSeeOther, location)
 }
 
+func (h *handler) Logout(c *gin.Context) {
+	clearAccessTokenCookie(c)
+	noStore(c)
+	replaceLocation(c, "/ui/users/create?auth=logout")
+}
+
 func setAccessTokenCookie(c *gin.Context, token string, expiresAt time.Time) {
 	maxAge := int(time.Until(expiresAt).Seconds())
 	if maxAge < 0 {
@@ -164,6 +173,40 @@ func setAccessTokenCookie(c *gin.Context, token string, expiresAt time.Time) {
 		Secure:   true,
 		SameSite: http.SameSiteLaxMode,
 	})
+}
+
+func clearAccessTokenCookie(c *gin.Context) {
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "access_token",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
+func noStore(c *gin.Context) {
+	c.Header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+	c.Header("Pragma", "no-cache")
+	c.Header("Expires", "0")
+}
+
+func replaceLocation(c *gin.Context, location string) {
+	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(`<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Cache-Control" content="no-store">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Logout</title>
+</head>
+<body>
+  <script>window.location.replace("`+location+`");</script>
+  <noscript><a href="`+location+`">Перейти на страницу входа</a></noscript>
+</body>
+</html>`))
 }
 
 func (h *handler) ShowCabinet(c *gin.Context) {

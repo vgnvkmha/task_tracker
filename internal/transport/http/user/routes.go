@@ -14,6 +14,7 @@ func RegisterRoutes(r *gin.Engine, h UserHandler, tokens *infraauth.JWTService, 
 	ui.GET("/success", h.ShowAuthSuccess)
 	ui.POST("", h.SubmitCreateForm)
 	ui.GET("/login", h.SubmitLoginForm)
+	ui.POST("/logout", h.Logout)
 
 	uiAuth := ui.Group("", middleware.UIActorMiddleware(tokens))
 	uiAuth.GET("/cabinet", h.ShowCabinet)

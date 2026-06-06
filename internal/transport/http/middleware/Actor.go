@@ -25,7 +25,11 @@ func ActorMiddleware(tokenParser TokenParser, legacyHeadersEnabled bool) gin.Han
 }
 
 func UIActorMiddleware(tokenParser TokenParser) gin.HandlerFunc {
-	return actorMiddleware(tokenParser, false, redirectToLogin)
+	base := actorMiddleware(tokenParser, false, redirectToLogin)
+	return func(ctx *gin.Context) {
+		setNoStoreHeaders(ctx)
+		base(ctx)
+	}
 }
 
 func actorMiddleware(tokenParser TokenParser, legacyHeadersEnabled bool, unauthorized func(*gin.Context, string)) gin.HandlerFunc {
@@ -129,6 +133,7 @@ func legacyActor(ctx *gin.Context, unauthorized func(*gin.Context, string)) (aut
 }
 
 func abortUnauthorized(ctx *gin.Context, message string) {
+	clearAccessTokenCookie(ctx)
 	ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 		"error": message,
 	})
@@ -139,8 +144,41 @@ func redirectToLogin(ctx *gin.Context, message string) {
 	if message == "expired token" {
 		values = "?auth=expired"
 	}
-	ctx.Redirect(http.StatusSeeOther, "/ui/users/create"+values)
+	clearAccessTokenCookie(ctx)
+	setNoStoreHeaders(ctx)
+	body := `<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Cache-Control" content="no-store">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Redirect</title>
+</head>
+<body>
+  <script>window.location.replace("/ui/users/create` + values + `");</script>
+  <noscript><a href="/ui/users/create` + values + `">Перейти на страницу входа</a></noscript>
+</body>
+</html>`
+	ctx.Data(http.StatusOK, "text/html; charset=utf-8", []byte(body))
 	ctx.Abort()
+}
+
+func setNoStoreHeaders(ctx *gin.Context) {
+	ctx.Header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+	ctx.Header("Pragma", "no-cache")
+	ctx.Header("Expires", "0")
+}
+
+func clearAccessTokenCookie(ctx *gin.Context) {
+	http.SetCookie(ctx.Writer, &http.Cookie{
+		Name:     "access_token",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	})
 }
 
 func authErrorMessage(err error) string {
