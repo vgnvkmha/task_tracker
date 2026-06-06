@@ -1,24 +1,20 @@
 package task_handler
 
-// import (
-// 	"task_tracker/internal/transport/http/middleware"
+import (
+	infraauth "task_tracker/internal/infrastracture/auth"
+	"task_tracker/internal/transport/http/middleware"
 
-// 	"github.com/gin-gonic/gin"
-// )
+	"github.com/gin-gonic/gin"
+)
 
-// func RegisterRoutes(
-// 	r *gin.Engine,
-// 	h TaskHandler,
-// ) {
-// 	r.POST("/create_task", h.Create)
-// 	r.GET("/get_tasks_by_team/:id", h.ListActiveByTeam)
+func RegisterRoutes(r *gin.Engine, h TaskHandler, tokens *infraauth.JWTService, legacyHeadersEnabled bool) {
+	task := r.Group("/task", middleware.ActorMiddleware(tokens, legacyHeadersEnabled))
 
-// 	r.POST("change/status", h.ChangeStatus)
-// 	r.POST("change/board", h.ChangeBoard)
-// 	r.POST("change/assign", h.ChangeAssign)
-// 	r.POST("change/reporter", h.ChangeReporter)
-// 	r.POST("change/sprint", h.ChangeSprint)
-
-// 	r.Use(middleware.ActorMiddleware())
-
-// }
+	task.POST("/create", h.Create)
+	task.GET("/get_by_id/:id", h.GetByID)
+	task.GET("/list", h.List)
+	task.GET("/get_by_board/:board_id", h.GetByBoardID)
+	task.GET("/get_by_assignee/:assignee_id", h.GetByAssigneeID)
+	task.PATCH("/update/:id", h.Update)
+	task.DELETE("/delete/:id", h.Delete)
+}

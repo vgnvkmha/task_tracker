@@ -1,313 +1,316 @@
 package task
 
-// import (
-// 	"context"
-// 	"task_tracker/internal/domain/auth"
-// 	"task_tracker/internal/domain/task"
-// 	vo "task_tracker/internal/domain/value_objects"
-// 	dto "task_tracker/internal/handler/task/dto"
-// 	"task_tracker/internal/repo"
+import (
+	"context"
+	"errors"
 
-// 	"github.com/google/uuid"
-// 	"go.uber.org/zap"
-// )
+	"task_tracker/internal/application/common"
+	"task_tracker/internal/common_errors"
+	"task_tracker/internal/domain/auth"
+	domaintask "task_tracker/internal/domain/task"
+	"task_tracker/internal/repo"
 
-// const (
-// 	module = "task"
-// 	layer  = "service"
-// )
+	"github.com/google/uuid"
+	"go.uber.org/zap"
+)
 
-// type Task = task.Task
+const (
+	module = "task"
+	layer  = "service"
+)
 
-// type TaskService interface {
-// 	Create(ctx context.Context, actor auth.Actor, task dto.TaskRequest) (Task, error)
+type Task = domaintask.Task
 
-// 	GetActiveTasksByTeam(ctx context.Context, actor auth.Actor, teamId uuid.UUID) ([]task.Task, error)
-// 	GetTeamById(ctx context.Context, actor auth.Actor, teamId uuid.UUID) (Team, error)
+type TaskService interface {
+	Create(ctx context.Context, actor auth.Actor, input CreateTaskInput) (*Task, error)
+	GetByID(ctx context.Context, actor auth.Actor, id uuid.UUID) (*Task, error)
+	FindMany(ctx context.Context, actor auth.Actor, filters TaskFilters) ([]*Task, error)
+	FindByBoardID(ctx context.Context, actor auth.Actor, boardID uuid.UUID) ([]*Task, error)
+	FindByAssigneeID(ctx context.Context, actor auth.Actor, assigneeID uuid.UUID) ([]*Task, error)
+	Update(ctx context.Context, actor auth.Actor, id uuid.UUID, input UpdateTaskInput) (*Task, error)
+	Delete(ctx context.Context, actor auth.Actor, id uuid.UUID) error
+}
 
-// 	ChangeStatus(ctx context.Context, actor auth.Actor, taskId uuid.UUID, newStatus string) (vo.Status, error)
-// 	ChangeBoard(ctx context.Context, actor auth.Actor, taskId, newBoardId uuid.UUID) (Board, error)
-// 	ChangeAssign(ctx context.Context, actor auth.Actor, taskId, newAssignId uuid.UUID) (models.User, error)
-// 	ChangeReporter(ctx context.Context, actor auth.Actor, taskId, newreporterId uuid.UUID) (models.User, error)
-// 	ChangeSprint(ctx context.Context, actor auth.Actor, taskId, newSprintId uuid.UUID) (models.Sprint, error)
-// }
+type service struct {
+	taskRepo repo.TaskRepo
 
-// type service struct {
-// 	repo   repo.TaskRepo
-// 	logger *zap.SugaredLogger
-// }
+	logger      *zap.SugaredLogger
+	transaction common.TxManager
+}
 
-// func New(repo repo.TaskRepo, logger *zap.SugaredLogger) TaskService {
-// 	return &service{
-// 		repo: repo,
-// 		logger: logger.With(
-// 			"module", module,
-// 			"layer", layer,
-// 		),
-// 	}
-// }
+func New(taskRepo repo.TaskRepo, logger *zap.SugaredLogger, transaction common.TxManager) TaskService {
+	return &service{
+		taskRepo:    taskRepo,
+		logger:      logger,
+		transaction: transaction,
+	}
+}
 
-// func (s *service) Create(ctx context.Context, actor auth.Actor, task dto.TaskRequest) (models.Task, error) {
-// 	const op = "Create Task"
+func (s *service) Create(ctx context.Context, actor auth.Actor, input CreateTaskInput) (*Task, error) {
+	var result *Task
 
-// 	loggingFields := []any{
-// 		"operation", op,
-// 		"user_id", actor.Id,
-// 		"user_role", actor.Role,
-// 	}
+	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
+		reporterID := actor.ID
+		if input.ReporterID != nil {
+			if !actor.Role.IsManagerRole() && *input.ReporterID != actor.ID {
+				return ErrPermissionDenied
+			}
+			reporterID = *input.ReporterID
+		}
 
-// 	user, err := s.repo.GetUser(ctx, actor.Id)
-// 	if err != nil {
-// 		return models.Task{}, logError(err, s.logger, loggingFields...)
-// 	}
+		task, err := domaintask.New(
+			uuid.New(),
+			input.Name,
+			input.Description,
+			input.BoardID,
+			input.DueTo,
+			input.AssigneeID,
+			reporterID,
+			input.SprintID,
+		)
+		if err != nil {
+			return mapDomainError(err)
+		}
 
-// 	usersData, err := s.repo.GetPersonalData(ctx, user.DataId)
-// 	if err != nil {
-// 		return task.Task{}, logError(err, s.logger, loggingFields...)
-// 	}
-// 	if !usersData.Role.IsManagerRole() {
-// 		return models.Task{}, logError(task_errors.ErrInvalidRights, s.logger, loggingFields...)
-// 	}
+		created, err := s.taskRepo.Create(ctx, task)
+		if err != nil {
+			return mapRepoError(err, ErrCreateTaskFailed)
+		}
+		result = created
+		return nil
+	})
 
-// 	id := uuid.New()
-// 	model, err := models.NewTask(
-// 		id,
-// 		task.Name,
-// 		task.Description,
-// 		task.BoardID,
-// 		task.DueTo,
-// 		task.AssigneeID,
-// 		task.ReporetID,
-// 		task.SprintId,
-// 	)
-// 	if err != nil {
-// 		return models.Task{}, logError(err, s.logger, loggingFields...)
-// 	}
+	if err != nil {
+		return nil, logError(err, s.logger,
+			"operation", "create",
+			"actor_id", actor.ID,
+			"actor_role", actor.Role,
+			"name", input.Name,
+		)
+	}
 
-// 	logSuccess(s.logger, loggingFields...)
-// 	return s.repo.Create(ctx, model)
-// }
+	logSuccess(s.logger,
+		"operation", "create",
+		"actor_id", actor.ID,
+		"actor_role", actor.Role,
+		"task_id", result.Id,
+	)
+	return result, nil
+}
 
-// func (s *service) GetActiveTasksByTeam(ctx context.Context, actor auth.Actor, teamId uuid.UUID) ([]models.Task, error) {
-// 	const op = "GetActiveTaskByTeam"
+func (s *service) GetByID(ctx context.Context, actor auth.Actor, id uuid.UUID) (*Task, error) {
+	var result *Task
 
-// 	loggingFields := []any{
-// 		"operation", op,
-// 		"user_id", actor.Id,
-// 		"user_role", actor.Role,
-// 		"team_id", teamId,
-// 	}
+	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
+		task, err := s.taskRepo.GetByID(ctx, id)
+		if err != nil {
+			return mapRepoError(err, ErrTaskNotFound)
+		}
+		if task == nil {
+			return ErrTaskNotFound
+		}
 
-// 	user, err := s.repo.GetUser(ctx, actor.Id)
-// 	if err != nil {
-// 		return nil, logError(err, s.logger, loggingFields...)
-// 	}
-// 	usersData, err := s.repo.GetPersonalData(ctx, user.DataId)
-// 	if err != nil {
-// 		return nil, logError(err, s.logger, loggingFields...)
-// 	}
-// 	if err = validation.IsAlloweToSeeTeamData(usersData.Role, user.TeamId, teamId); err != nil {
-// 		return nil, err
-// 	}
+		result = task
+		return nil
+	})
 
-// 	tasks, err := s.repo.GetActiveTasksByTeam(ctx, teamId)
-// 	if err != nil {
-// 		return nil, logError(err, s.logger, loggingFields...)
-// 	}
+	if err != nil {
+		return nil, logError(err, s.logger,
+			"operation", "get_by_id",
+			"actor_id", actor.ID,
+			"actor_role", actor.Role,
+			"task_id", id,
+		)
+	}
 
-// 	logSuccess(s.logger, loggingFields...)
-// 	return tasks, nil
-// }
+	return result, nil
+}
 
-// func (s *service) GetTeamById(ctx context.Context, actor auth.Actor, teamId uuid.UUID) (models.Team, error) {
-// 	const op = "Get Team by ID"
+func (s *service) FindMany(ctx context.Context, actor auth.Actor, filters TaskFilters) ([]*Task, error) {
+	var result []*Task
 
-// 	loggingFields := []any{
-// 		"operation", op,
-// 		"team_id", teamId,
-// 		"user_role", "undefined",
-// 	}
-// 	team, err := s.repo.GetTeam(ctx, teamId)
-// 	if err != nil {
-// 		return models.Team{}, logError(err, s.logger, loggingFields...)
-// 	}
+	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
+		if filters.Status != nil {
+			if err := filters.Status.IsValid(); err != nil {
+				return ErrInvalidStatus
+			}
+		}
 
-// 	logSuccess(s.logger, loggingFields...)
-// 	return team, nil
-// }
+		tasks, err := s.taskRepo.FindMany(ctx, toRepoFilters(filters))
+		if err != nil {
+			return mapRepoError(err, ErrTaskNotFound)
+		}
+		result = tasks
+		return nil
+	})
 
-// func (s *service) ChangeStatus(ctx context.Context, actor auth.Actor, taskId uuid.UUID, newStatus string) (vo.Status, error) {
-// 	const op = "Change Status"
+	if err != nil {
+		return nil, logError(err, s.logger,
+			"operation", "find_many",
+			"actor_id", actor.ID,
+			"actor_role", actor.Role,
+		)
+	}
 
-// 	loggingFields := []any{
-// 		"operation", op,
-// 		"user_id", actor.Id,
-// 		"user_role", actor.Role,
-// 		"task_id", taskId,
-// 		"new_status", newStatus,
-// 	}
-// 	newStatusVo, err := validation.ParseStatus(newStatus)
-// 	if err != nil {
-// 		return newStatusVo, logError(err, s.logger, loggingFields...)
-// 	}
+	return result, nil
+}
 
-// 	user, err := s.repo.GetUser(ctx, actor.Id)
-// 	if err != nil {
-// 		return newStatusVo, logError(err, s.logger, loggingFields...)
-// 	}
-// 	usersData, err := s.repo.GetPersonalData(ctx, user.DataId)
-// 	if err != nil {
-// 		return newStatusVo, logError(err, s.logger, loggingFields...)
-// 	}
-// 	if !usersData.Role.IsManagerRole() || newStatusVo.IsValid() != nil || newStatusVo.IsImmutable() != nil {
-// 		return newStatusVo, logError(err, s.logger, loggingFields...)
-// 	}
+func (s *service) FindByBoardID(ctx context.Context, actor auth.Actor, boardID uuid.UUID) ([]*Task, error) {
+	return s.FindMany(ctx, actor, TaskFilters{BoardID: &boardID})
+}
 
-// 	task, err := s.repo.GetTask(ctx, taskId)
-// 	if err != nil {
-// 		return newStatusVo, logError(err, s.logger, loggingFields...)
-// 	}
+func (s *service) FindByAssigneeID(ctx context.Context, actor auth.Actor, assigneeID uuid.UUID) ([]*Task, error) {
+	return s.FindMany(ctx, actor, TaskFilters{AssigneeID: &assigneeID})
+}
 
-// 	err = task.ChangeStatus(newStatusVo)
-// 	if err != nil {
-// 		return newStatusVo, logError(err, s.logger, loggingFields...)
-// 	}
+func (s *service) Update(ctx context.Context, actor auth.Actor, id uuid.UUID, input UpdateTaskInput) (*Task, error) {
+	var result *Task
 
-// 	if err = s.repo.Update(ctx, task); err != nil {
-// 		return newStatusVo, logError(err, s.logger, loggingFields...)
-// 	}
+	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
+		existing, err := s.taskRepo.GetByID(ctx, id)
+		if err != nil {
+			return mapRepoError(err, ErrTaskNotFound)
+		}
+		if existing == nil {
+			return ErrTaskNotFound
+		}
+		if !canModify(actor, existing) {
+			return ErrPermissionDenied
+		}
 
-// 	logSuccess(s.logger, loggingFields...)
-// 	return newStatusVo, nil
-// }
+		if input.ReporterID != nil && !actor.Role.IsManagerRole() && *input.ReporterID != actor.ID {
+			return ErrPermissionDenied
+		}
 
-// func (s *service) ChangeBoard(ctx context.Context, actor auth.Actor, taskId, newBoardId uuid.UUID) (models.Board, error) {
-// 	const op = "Change Task Board"
+		if err := existing.Update(
+			input.Name,
+			input.Description,
+			input.Status,
+			input.DueTo,
+			input.ReporterID,
+			input.AssigneeID,
+			input.BoardID,
+			input.SprintID,
+		); err != nil {
+			return mapDomainError(err)
+		}
 
-// 	loggingFields := []any{
-// 		"operation", op,
-// 		"user_id", actor.Id,
-// 		"user_role", actor.Role,
-// 		"board_id", newBoardId,
-// 		"task_id", taskId,
-// 	}
+		updated, err := s.taskRepo.Update(ctx, id, *existing)
+		if err != nil {
+			return mapRepoError(err, ErrUpdateTaskFailed)
+		}
+		if updated == nil {
+			return ErrTaskNotFound
+		}
 
-// 	user, err := s.repo.GetUser(ctx, actor.Id)
-// 	if err != nil {
-// 		return models.Board{}, logError(err, s.logger, loggingFields...)
-// 	}
-// 	usersData, err := s.repo.GetPersonalData(ctx, user.DataId)
-// 	if err != nil {
-// 		return models.Board{}, logError(err, s.logger, loggingFields...)
-// 	}
+		result = updated
+		return nil
+	})
 
-// 	if !usersData.Role.IsManagerRole() {
-// 		return models.Board{}, logError(err, s.logger, loggingFields...)
-// 	}
-// 	board, err := s.repo.GetBoard(ctx, newBoardId)
-// 	if err != nil {
-// 		return models.Board{}, logError(err, s.logger, loggingFields...)
-// 	}
+	if err != nil {
+		return nil, logError(err, s.logger,
+			"operation", "update",
+			"actor_id", actor.ID,
+			"actor_role", actor.Role,
+			"task_id", id,
+		)
+	}
 
-// 	task, err := s.repo.GetTask(ctx, taskId)
-// 	if err != nil {
-// 		return models.Board{}, logError(err, s.logger, loggingFields...)
-// 	}
+	logSuccess(s.logger,
+		"operation", "update",
+		"actor_id", actor.ID,
+		"actor_role", actor.Role,
+		"task_id", result.Id,
+	)
+	return result, nil
+}
 
-// 	if err := task.ChangeBoard(newBoardId); err != nil {
-// 		return models.Board{}, logError(err, s.logger, loggingFields...)
-// 	}
+func (s *service) Delete(ctx context.Context, actor auth.Actor, id uuid.UUID) error {
+	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
+		existing, err := s.taskRepo.GetByID(ctx, id)
+		if err != nil {
+			return mapRepoError(err, ErrTaskNotFound)
+		}
+		if existing == nil {
+			return ErrTaskNotFound
+		}
+		if !canModify(actor, existing) {
+			return ErrPermissionDenied
+		}
 
-// 	logSuccess(s.logger, loggingFields...)
-// 	return board, nil
-// }
+		if err := s.taskRepo.Delete(ctx, id); err != nil {
+			return mapRepoError(err, ErrDeleteTaskFailed)
+		}
+		return nil
+	})
 
-// func (s *service) ChangeAssign(ctx context.Context, actor auth.Actor, taskId, newAssignId uuid.UUID) (models.User, error) {
-// 	const op = "Change Task Assignee"
+	if err != nil {
+		return logError(err, s.logger,
+			"operation", "delete",
+			"actor_id", actor.ID,
+			"actor_role", actor.Role,
+			"task_id", id,
+		)
+	}
 
-// 	loggingFields := []any{
-// 		"operation", op,
-// 		"assign_id", newAssignId,
-// 		"task_id", taskId,
-// 		"user_role", "undefined",
-// 	}
+	logSuccess(s.logger,
+		"operation", "delete",
+		"actor_id", actor.ID,
+		"actor_role", actor.Role,
+		"task_id", id,
+	)
+	return nil
+}
 
-// 	task, err := s.repo.GetTask(ctx, taskId)
-// 	if err != nil {
-// 		return models.User{}, logError(err, s.logger, loggingFields...)
-// 	}
+func canModify(actor auth.Actor, task *Task) bool {
+	if actor.Role.IsManagerRole() {
+		return true
+	}
+	if actor.ID == task.ReporterId {
+		return true
+	}
+	return task.AssigneeId != nil && actor.ID == *task.AssigneeId
+}
 
-// 	assignee, err := s.repo.GetUser(ctx, newAssignId)
-// 	if err != nil {
-// 		return models.User{}, logError(err, s.logger, loggingFields...)
-// 	}
+func toRepoFilters(filters TaskFilters) repo.TaskFilters {
+	return repo.TaskFilters{
+		BoardID:    filters.BoardID,
+		AssigneeID: filters.AssigneeID,
+		ReporterID: filters.ReporterID,
+		SprintID:   filters.SprintID,
+		Status:     filters.Status,
+	}
+}
 
-// 	err = task.ChangeAssignee(&newAssignId)
-// 	if err != nil {
-// 		return models.User{}, logError(err, s.logger, loggingFields...)
-// 	}
+func mapRepoError(err error, fallback error) error {
+	switch {
+	case errors.Is(err, common_errors.ErrNotFound):
+		return ErrTaskNotFound
+	case errors.Is(err, common_errors.ErrInvalidArgument):
+		return ErrInvalidInput
+	case errors.Is(err, common_errors.ErrConflict):
+		return ErrInvalidInput
+	default:
+		return fallback
+	}
+}
 
-// 	logSuccess(s.logger, loggingFields...)
-// 	return assignee, nil
-// }
-
-// func (s *service) ChangeReporter(ctx context.Context, actor auth.Actor, taskId, newreporterId uuid.UUID) (models.User, error) {
-// 	const op = "Change Task Reporter"
-
-// 	loggingFields := []any{
-// 		"operation", op,
-// 		"reporter_id", newreporterId,
-// 		"task_id", taskId,
-// 		"user_role", "undefined",
-// 	}
-
-// 	task, err := s.repo.GetTask(ctx, taskId)
-// 	if err != nil {
-// 		return models.User{}, logError(err, s.logger, loggingFields...)
-// 	}
-
-// 	reporter, err := s.repo.GetUser(ctx, newreporterId)
-// 	if err != nil {
-// 		return models.User{}, logError(err, s.logger, loggingFields...)
-// 	}
-
-// 	err = task.ChangeReporter(newreporterId)
-// 	if err != nil {
-// 		return models.User{}, logError(err, s.logger, loggingFields...)
-// 	}
-
-// 	logSuccess(s.logger, loggingFields...)
-// 	return reporter, nil
-// }
-
-// func (s *service) ChangeSprint(ctx context.Context, actor auth.Actor, taskId, newSprintId uuid.UUID) (models.Sprint, error) {
-// 	const op = "Change Task Sprint"
-
-// 	loggingFields := []any{
-// 		"operation", op,
-// 		"sprint_id", newSprintId,
-// 		"task_id", taskId,
-// 		"user_role", "undefined",
-// 	}
-
-// 	task, err := s.repo.GetTask(ctx, taskId)
-// 	if err != nil {
-// 		return models.Sprint{}, logError(err, s.logger, loggingFields...)
-// 	}
-
-// 	_, err = s.repo.GetUser(ctx, newSprintId)
-// 	if err != nil {
-// 		return models.Sprint{}, logError(err, s.logger, loggingFields...)
-// 	}
-// 	newSprint, err := s.repo.GetSprint(ctx, newSprintId)
-// 	if err != nil {
-// 		return models.Sprint{}, logError(err, s.logger, loggingFields...)
-// 	}
-// 	err = task.ChangeSprint(&newSprintId)
-// 	if err != nil {
-// 		return models.Sprint{}, logError(err, s.logger, loggingFields...)
-// 	}
-
-// 	logSuccess(s.logger, loggingFields...)
-// 	return newSprint, nil
-// }
+func mapDomainError(err error) error {
+	switch {
+	case errors.Is(err, domaintask.ErrTaskName),
+		errors.Is(err, domaintask.ErrTaskBoard),
+		errors.Is(err, domaintask.ErrTaskUser),
+		errors.Is(err, domaintask.ErrInvalidTime):
+		return ErrInvalidInput
+	case errors.Is(err, domaintask.ErrInvalidStatus),
+		errors.Is(err, domaintask.ErrInvalidRole):
+		return ErrInvalidStatus
+	case errors.Is(err, domaintask.ErrInvalidStatusTransition):
+		return ErrInvalidTransition
+	case errors.Is(err, domaintask.ErrInvalidRights),
+		errors.Is(err, domaintask.ErrImmutableTask):
+		return ErrPermissionDenied
+	default:
+		return err
+	}
+}

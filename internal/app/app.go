@@ -2,15 +2,15 @@ package app
 
 import (
 	"context"
-	// task_service "task_tracker/internal/application/task"
+	task_service "task_tracker/internal/application/task"
+	team_application "task_tracker/internal/application/team"
 	"task_tracker/internal/application/user"
 	"task_tracker/internal/configs"
 	"task_tracker/internal/domain/logger"
+	task_handler "task_tracker/internal/handler/task"
 	infraauth "task_tracker/internal/infrastracture/auth"
 	"task_tracker/internal/infrastracture/db"
-
-	// task_handler "task_tracker/internal/handler/task"
-	team_application "task_tracker/internal/application/team"
+	taskRepo "task_tracker/internal/repo"
 	"task_tracker/internal/repo/team"
 	userRepo "task_tracker/internal/repo/user"
 	auth_handler "task_tracker/internal/transport/http/auth"
@@ -51,6 +51,7 @@ func Run() error {
 	usersRepo := userRepo.NewUserRepo(pDb)
 	personalDataRepo := userRepo.NewPersonalDataRepo(pDb)
 	teamRepo := team.NewTeamRepo(pDb)
+	tasksRepo := taskRepo.NewTaskRepo(pDb)
 
 	txManager := db.NewTxManager(pDb)
 	userService := user.New(usersRepo, personalDataRepo, teamRepo, logger, txManager)
@@ -59,8 +60,8 @@ func Run() error {
 
 	teamService := team_application.New(teamRepo, usersRepo, logger, txManager)
 	teamHandler := team_handler.New(teamService)
-	// taskService := task_service.New(repo, logger)
-	// taskHandler := task_handler.New(service)
+	taskService := task_service.New(tasksRepo, logger, txManager)
+	taskHandler := task_handler.New(taskService)
 
 	router := gin.Default()
 	router.SetTrustedProxies(nil) //TODO: change later
@@ -69,6 +70,6 @@ func Run() error {
 	auth_handler.RegisterRoutes(router, authHandler)
 	handler_user.RegisterRoutes(router, userHandler, jwtService, authCfg.LegacyHeadersEnabled)
 	team_handler.RegisterRoutes(router, teamHandler, jwtService, authCfg.LegacyHeadersEnabled)
-	// task_handler.RegisterRoutes(router, handler)
+	task_handler.RegisterRoutes(router, taskHandler, jwtService, authCfg.LegacyHeadersEnabled)
 	return router.RunTLS(":8080", "cert.pem", "key.pem")
 }

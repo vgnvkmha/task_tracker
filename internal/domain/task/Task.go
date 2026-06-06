@@ -17,7 +17,7 @@ type Task struct {
 	UpdatedAt   time.Time
 	ReporterId  uuid.UUID
 	AssigneeId  *uuid.UUID
-	BoardId     uuid.UUID
+	BoardId     *uuid.UUID
 	SprintId    *uuid.UUID
 }
 
@@ -25,7 +25,7 @@ func New(
 	id uuid.UUID,
 	name string,
 	description string,
-	boardID uuid.UUID,
+	boardID *uuid.UUID,
 	dueTo time.Time,
 	assigneeID *uuid.UUID,
 	reporterID uuid.UUID,
@@ -35,31 +35,80 @@ func New(
 	if strings.TrimSpace(name) == "" {
 		return Task{}, ErrTaskName
 	}
-	if boardID == uuid.Nil {
-		return Task{}, ErrTaskBoard
-	}
 	if reporterID == uuid.Nil {
 		return Task{}, ErrTaskUser
 	}
 
-	if time.Now().After(dueTo) {
+	if !dueTo.IsZero() && time.Now().After(dueTo) {
 		return Task{}, ErrInvalidTime
 	}
 
+	now := time.Now()
 	task := Task{
 		Id:          id,
-		Name:        name,
+		Name:        strings.TrimSpace(name),
 		Description: description,
 		Status:      Todo,
 		BoardId:     boardID,
-		CreatedAt:   time.Now(),
+		CreatedAt:   now,
 		DueTo:       dueTo,
+		UpdatedAt:   now,
 		AssigneeId:  assigneeID,
 		ReporterId:  reporterID,
 		SprintId:    sprintId,
 	}
 
 	return task, nil
+}
+
+func (t *Task) Update(
+	name *string,
+	description *string,
+	status *TaskStatus,
+	dueTo *time.Time,
+	reporterID *uuid.UUID,
+	assigneeID *uuid.UUID,
+	boardID *uuid.UUID,
+	sprintID *uuid.UUID,
+) error {
+	if name != nil {
+		if strings.TrimSpace(*name) == "" {
+			return ErrTaskName
+		}
+		t.Name = strings.TrimSpace(*name)
+	}
+	if description != nil {
+		t.Description = *description
+	}
+	if status != nil {
+		if err := status.IsValid(); err != nil {
+			return err
+		}
+		t.Status = *status
+	}
+	if dueTo != nil {
+		if !dueTo.IsZero() && time.Now().After(*dueTo) {
+			return ErrInvalidTime
+		}
+		t.DueTo = *dueTo
+	}
+	if reporterID != nil {
+		if *reporterID == uuid.Nil {
+			return ErrTaskUser
+		}
+		t.ReporterId = *reporterID
+	}
+	if assigneeID != nil {
+		t.AssigneeId = assigneeID
+	}
+	if boardID != nil {
+		t.BoardId = boardID
+	}
+	if sprintID != nil {
+		t.SprintId = sprintID
+	}
+	t.UpdatedAt = time.Now()
+	return nil
 }
 
 func (t *Task) ChangeStatus(newStatus TaskStatus) error {
@@ -76,8 +125,8 @@ func (t *Task) ChangeStatus(newStatus TaskStatus) error {
 	return nil
 }
 
-func (t *Task) ChangeBoard(newBoardId uuid.UUID) error {
-	if t.BoardId == newBoardId {
+func (t *Task) ChangeBoard(newBoardId *uuid.UUID) error {
+	if t.BoardId != nil && newBoardId != nil && *t.BoardId == *newBoardId {
 		return ErrSameChange
 	}
 	if t.Status.IsImmutable() != nil {

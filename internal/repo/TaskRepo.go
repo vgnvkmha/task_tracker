@@ -3,169 +3,346 @@ package repo
 import (
 	"context"
 	"database/sql"
-	"fmt"
-	"task_tracker/internal/domain/task"
+	"errors"
+	"strconv"
+	"strings"
 	"time"
 
+	"task_tracker/internal/common_errors"
+	"task_tracker/internal/domain/task"
+	"task_tracker/internal/infrastracture/db"
+	"task_tracker/internal/repo/dberrors"
+
 	"github.com/google/uuid"
-	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 type Task = task.Task
 
-type TaskRepo interface {
-	Create(ctx context.Context, task Task) (Task, error)
-	Get(ctx context.Context, taskId uuid.UUID) (Task, error)
-	Update(ctx context.Context, task Task) (Task, error)
+type TaskFilters struct {
+	BoardID    *uuid.UUID
+	AssigneeID *uuid.UUID
+	ReporterID *uuid.UUID
+	SprintID   *uuid.UUID
+	Status     *task.TaskStatus
+}
 
-	GetActiveByTeam(ctx context.Context, teamId uuid.UUID) ([]Task, error)
+type TaskRepo interface {
+	Create(ctx context.Context, task Task) (*Task, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*Task, error)
+	FindMany(ctx context.Context, filters TaskFilters) ([]*Task, error)
+	FindByBoardID(ctx context.Context, boardID uuid.UUID) ([]*Task, error)
+	FindByAssigneeID(ctx context.Context, assigneeID uuid.UUID) ([]*Task, error)
+	Update(ctx context.Context, id uuid.UUID, task Task) (*Task, error)
+	Delete(ctx context.Context, id uuid.UUID) error
 }
 
 type taskRepo struct {
 	db *sql.DB
 }
 
-func New(db *sql.DB) TaskRepo {
+type rowScanner interface {
+	Scan(dest ...any) error
+}
+
+func NewTaskRepo(db *sql.DB) TaskRepo {
 	return &taskRepo{
 		db: db,
 	}
 }
 
-func (r *taskRepo) Create(ctx context.Context, task Task) (Task, error) {
+func (r *taskRepo) Create(ctx context.Context, task Task) (*Task, error) {
 	const query = `
-		INSERT INTO tasks (id, name, description, status, created_at, due_to, updated_at, reporter_id, assignee_id, board_id, sprint_id)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		INSERT INTO tasks (
+			id,
+			name,
+			description,
+			status,
+			created_at,
+			due_to,
+			updated_at,
+			reporter_id,
+			assignee_id,
+			board_id,
+			sprint_id
+		)
+		VALUES ($1, $2, $3, $4, COALESCE($5, NOW()), $6, COALESCE($7, NOW()), $8, $9, $10, $11)
+		RETURNING id, name, description, status, created_at, due_to, updated_at, reporter_id, assignee_id, board_id, sprint_id
 	`
 
-	_, err := r.db.ExecContext(
-		ctx,
-		query,
+	result, err := scanTask(queryRow(ctx, r.db, query,
 		task.Id,
 		task.Name,
-		task.Description,
-		task.Status,
-		task.CreatedAt,
-		task.DueTo,
-		task.UpdatedAt,
+		nullableString(task.Description),
+		nullableStatus(task.Status),
+		nullableTime(task.CreatedAt),
+		nullableTime(task.DueTo),
+		nullableTime(task.UpdatedAt),
 		task.ReporterId,
 		task.AssigneeId,
 		task.BoardId,
 		task.SprintId,
-	)
+	))
 
 	if err != nil {
-		return Task{}, fmt.Errorf("create task: %v", err)
+		return nil, dberrors.Map(err)
 	}
 
-	return task, nil
+	return result, nil
 }
 
-func (r *taskRepo) Get(ctx context.Context, taskId uuid.UUID) (Task, error) {
-	var task Task
-
-	query := `
-		SELECT *
-		FROM task
-		WHERE id = $1
-		LIMIT = 1
-	`
-	err := r.db.QueryRowContext(ctx, query, taskId).Scan(
-		&task.Id,
-		&task.Name,
-		&task.Description,
-		&task.Status,
-		&task.BoardId,
-		&task.CreatedAt,
-		&task.DueTo,
-		&task.UpdatedAt,
-		&task.AssigneeId,
-		&task.ReporterId,
-	)
-
-	if err != nil {
-		return Task{}, err
-	}
-
-	return task, nil
-}
-
-func (r *taskRepo) Update(ctx context.Context, task Task) (Task, error) {
+func (r *taskRepo) GetByID(ctx context.Context, id uuid.UUID) (*Task, error) {
 	const query = `
-		UPDATE task
-		SET 
-			name = $1,
-			description = $2,
-			status = $3,
-			board_id = $4,
-			created_at = $5,
-			due_to = $6,
-			updated_at = $7,
-			assignee_id = $8,
-			reporter_id = $9,
-			sprint_id = $10
-		WHERE id = $11
-	`
-
-	_, err := r.db.ExecContext(
-		ctx,
-		query,
-		task.Name,
-		task.Description,
-		task.Status,
-		task.BoardId,
-		task.CreatedAt,
-		task.DueTo,
-		time.Now(),
-		task.AssigneeId,
-		task.ReporterId,
-		task.SprintId,
-		task.Id,
-	)
-
-	if err != nil {
-		return Task{}, err
-	}
-
-	return task, nil
-}
-
-func (r *taskRepo) GetActiveByTeam(ctx context.Context, teamId uuid.UUID) ([]Task, error) {
-	query := `
-		SELECT id, name, description, status, board, due_to
+		SELECT id, name, description, status, created_at, due_to, updated_at, reporter_id, assignee_id, board_id, sprint_id
 		FROM tasks
-		WHERE team_id = $1 AND status IN ($2, $3)
-		ORDER BY due_to ASC
+		WHERE id = $1
 	`
 
-	rows, err := r.db.QueryContext(ctx, query, teamId)
+	task, err := scanTask(queryRow(ctx, r.db, query, id))
 	if err != nil {
-		return nil, err
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, dberrors.Map(err)
+	}
+
+	return task, nil
+}
+
+func (r *taskRepo) FindMany(ctx context.Context, filters TaskFilters) ([]*Task, error) {
+	query, args := buildFindManyQuery(filters)
+
+	rows, err := queryRows(ctx, r.db, query, args...)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, dberrors.Map(err)
 	}
 	defer rows.Close()
 
-	var tasks []Task
+	return scanTasks(rows)
+}
+
+func (r *taskRepo) FindByBoardID(ctx context.Context, boardID uuid.UUID) ([]*Task, error) {
+	return r.FindMany(ctx, TaskFilters{
+		BoardID: &boardID,
+	})
+}
+
+func (r *taskRepo) FindByAssigneeID(ctx context.Context, assigneeID uuid.UUID) ([]*Task, error) {
+	return r.FindMany(ctx, TaskFilters{
+		AssigneeID: &assigneeID,
+	})
+}
+
+func (r *taskRepo) Update(ctx context.Context, id uuid.UUID, task Task) (*Task, error) {
+	const query = `
+		UPDATE tasks
+		SET
+			name = $1,
+			description = $2,
+			status = $3,
+			due_to = $4,
+			updated_at = NOW(),
+			reporter_id = $5,
+			assignee_id = $6,
+			board_id = $7,
+			sprint_id = $8
+		WHERE id = $9
+		RETURNING id, name, description, status, created_at, due_to, updated_at, reporter_id, assignee_id, board_id, sprint_id
+	`
+
+	result, err := scanTask(queryRow(ctx, r.db, query,
+		task.Name,
+		nullableString(task.Description),
+		nullableStatus(task.Status),
+		nullableTime(task.DueTo),
+		task.ReporterId,
+		task.AssigneeId,
+		task.BoardId,
+		task.SprintId,
+		id,
+	))
+
+	if err != nil {
+		return nil, dberrors.Map(err)
+	}
+
+	return result, nil
+}
+
+func (r *taskRepo) Delete(ctx context.Context, id uuid.UUID) error {
+	const query = `
+		DELETE FROM tasks
+		WHERE id = $1
+	`
+
+	res, err := exec(ctx, r.db, query, id)
+	if err != nil {
+		return dberrors.Map(err)
+	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return dberrors.Map(err)
+	}
+	if rowsAffected == 0 {
+		return common_errors.ErrNotFound
+	}
+
+	return nil
+}
+
+func buildFindManyQuery(filters TaskFilters) (string, []any) {
+	query := `
+		SELECT id, name, description, status, created_at, due_to, updated_at, reporter_id, assignee_id, board_id, sprint_id
+		FROM tasks
+	`
+
+	var (
+		conditions []string
+		args       []any
+	)
+
+	addFilter := func(column string, value any) {
+		args = append(args, value)
+		conditions = append(conditions, column+" = $"+strconv.Itoa(len(args)))
+	}
+
+	if filters.BoardID != nil {
+		addFilter("board_id", *filters.BoardID)
+	}
+	if filters.AssigneeID != nil {
+		addFilter("assignee_id", *filters.AssigneeID)
+	}
+	if filters.ReporterID != nil {
+		addFilter("reporter_id", *filters.ReporterID)
+	}
+	if filters.SprintID != nil {
+		addFilter("sprint_id", *filters.SprintID)
+	}
+	if filters.Status != nil {
+		addFilter("status", *filters.Status)
+	}
+
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
+	}
+	query += " ORDER BY created_at DESC"
+
+	return query, args
+}
+
+func scanTasks(rows *sql.Rows) ([]*Task, error) {
+	var tasks []*Task
 
 	for rows.Next() {
-		var t Task
-
-		err := rows.Scan(
-			&t.Id,
-			&t.Name,
-			&t.Description,
-			&t.Status,
-			&t.BoardId,
-			&t.DueTo,
-		)
+		task, err := scanTask(rows)
 		if err != nil {
-			return nil, err
+			return nil, dberrors.Map(err)
 		}
-
-		tasks = append(tasks, t)
+		tasks = append(tasks, task)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, dberrors.Map(err)
 	}
 
 	return tasks, nil
+}
+
+func scanTask(scanner rowScanner) (*Task, error) {
+	var (
+		task        Task
+		description sql.NullString
+		status      sql.NullString
+		dueTo       sql.NullTime
+		assigneeID  uuid.NullUUID
+		boardID     uuid.NullUUID
+		sprintID    uuid.NullUUID
+	)
+
+	err := scanner.Scan(
+		&task.Id,
+		&task.Name,
+		&description,
+		&status,
+		&task.CreatedAt,
+		&dueTo,
+		&task.UpdatedAt,
+		&task.ReporterId,
+		&assigneeID,
+		&boardID,
+		&sprintID,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if description.Valid {
+		task.Description = description.String
+	}
+	if status.Valid {
+		task.Status = taskDomainStatus(status.String)
+	}
+	if dueTo.Valid {
+		task.DueTo = dueTo.Time
+	}
+	if assigneeID.Valid {
+		task.AssigneeId = &assigneeID.UUID
+	}
+	if boardID.Valid {
+		task.BoardId = &boardID.UUID
+	}
+	if sprintID.Valid {
+		task.SprintId = &sprintID.UUID
+	}
+
+	return &task, nil
+}
+
+func taskDomainStatus(status string) task.TaskStatus {
+	return task.TaskStatus(status)
+}
+
+func queryRow(ctx context.Context, sqlDB *sql.DB, query string, args ...any) *sql.Row {
+	if tx, ok := db.GetTx(ctx); ok {
+		return tx.QueryRowContext(ctx, query, args...)
+	}
+	return sqlDB.QueryRowContext(ctx, query, args...)
+}
+
+func queryRows(ctx context.Context, sqlDB *sql.DB, query string, args ...any) (*sql.Rows, error) {
+	if tx, ok := db.GetTx(ctx); ok {
+		return tx.QueryContext(ctx, query, args...)
+	}
+	return sqlDB.QueryContext(ctx, query, args...)
+}
+
+func exec(ctx context.Context, sqlDB *sql.DB, query string, args ...any) (sql.Result, error) {
+	if tx, ok := db.GetTx(ctx); ok {
+		return tx.ExecContext(ctx, query, args...)
+	}
+	return sqlDB.ExecContext(ctx, query, args...)
+}
+
+func nullableString(value string) any {
+	if value == "" {
+		return nil
+	}
+	return value
+}
+
+func nullableStatus(value task.TaskStatus) any {
+	if value == "" {
+		return nil
+	}
+	return value
+}
+
+func nullableTime(value time.Time) any {
+	if value.IsZero() {
+		return nil
+	}
+	return value
 }
