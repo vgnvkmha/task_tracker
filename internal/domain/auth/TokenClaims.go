@@ -21,8 +21,9 @@ type TokenClaims struct {
 
 func (c TokenClaims) Actor() Actor {
 	return Actor{
-		ID:   c.Subject,
-		Role: c.Role,
+		ID:     c.Subject,
+		Role:   c.Role,
+		TeamID: c.TeamID,
 	}
 }
 

@@ -106,6 +106,17 @@ func (h *handler) SubmitCreateForm(c *gin.Context) {
 		return
 	}
 
+	if h.tokens != nil {
+		token, claims, err := h.tokens.GenerateAccessToken(createdUser.ID, createdUser.Role, createdUser.TeamID)
+		if err != nil {
+			c.HTML(http.StatusOK, "user_create_result", gin.H{
+				"error": "Не удалось создать сессию",
+			})
+			return
+		}
+		setAccessTokenCookie(c, token, claims.ExpiresAtTime())
+	}
+
 	redirectUI(c, cabinetURL(createdUser.ID.String(), "registered", ""), http.StatusCreated)
 }
 
@@ -283,12 +294,20 @@ func (h *handler) UpdateCabinet(c *gin.Context) {
 	}
 
 	updateActor := auth.Actor{
-		ID:   profile.User.ID,
-		Role: profile.User.Role,
+		ID:     profile.User.ID,
+		Role:   profile.User.Role,
+		TeamID: profile.User.TeamID,
 	}
-	if _, err := h.service.Update(c.Request.Context(), updateActor, input.ToServiceInput()); err != nil {
+	updatedUser, err := h.service.Update(c.Request.Context(), updateActor, input.ToServiceInput())
+	if err != nil {
 		redirectUI(c, cabinetURL(input.UserID.String(), "", mapUIError(err)), http.StatusSeeOther)
 		return
+	}
+	if h.tokens != nil {
+		token, claims, err := h.tokens.GenerateAccessToken(updatedUser.ID, updatedUser.Role, updatedUser.TeamID)
+		if err == nil {
+			setAccessTokenCookie(c, token, claims.ExpiresAtTime())
+		}
 	}
 
 	redirectUI(c, cabinetURL(input.UserID.String(), "updated", ""), http.StatusSeeOther)

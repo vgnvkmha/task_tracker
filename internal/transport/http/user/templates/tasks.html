@@ -62,6 +62,23 @@
       margin-bottom: 14px;
     }
 
+    .board-bar {
+      display: grid;
+      grid-template-columns: minmax(240px, 1fr) auto auto auto;
+      gap: 10px;
+      align-items: end;
+      margin-bottom: 14px;
+      padding: 16px;
+      border: 1px solid #d7dce3;
+      border-radius: 8px;
+      background: #ffffff;
+      box-shadow: 0 18px 45px rgba(31, 41, 55, 0.08);
+    }
+
+    .board-bar label {
+      margin: 0;
+    }
+
     .layout {
       grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
       align-items: start;
@@ -166,6 +183,14 @@
 
     .danger:hover {
       background: #fff1f1;
+    }
+
+    button:disabled,
+    input:disabled,
+    textarea:disabled,
+    select:disabled {
+      cursor: not-allowed;
+      opacity: 0.62;
     }
 
     .compact {
@@ -341,6 +366,13 @@
       background: #ffffff;
     }
 
+    .empty strong {
+      display: block;
+      margin-bottom: 6px;
+      color: #374151;
+      font-size: 17px;
+    }
+
     .quick-filters {
       display: flex;
       flex-wrap: wrap;
@@ -377,6 +409,7 @@
       }
 
       header,
+      .board-bar,
       .toolbar,
       .layout,
       .task-head {
@@ -387,6 +420,7 @@
         margin-top: 18px;
       }
 
+      .board-bar button,
       .toolbar .button,
       .toolbar button,
       .task-actions,
@@ -403,7 +437,7 @@
   </style>
 </head>
 <body>
-  <main>
+  <main id="task-app" data-team-id="{{ .team_id }}">
     <header>
       <div>
         <h1>Задачи</h1>
@@ -419,6 +453,24 @@
       <div class="message error">{{ .error }}</div>
     {{ end }}
 
+    <div class="board-bar" aria-label="Выбор доски">
+      <label>
+        Доска
+        <select id="board-select" disabled>
+          <option value="">Загружаем доски...</option>
+        </select>
+      </label>
+      <button id="create-board-button" type="button">+ Новая доска</button>
+      <button id="rename-board-button" class="ghost" type="button" disabled>Переименовать</button>
+      <button id="delete-board-button" class="danger compact" type="button" disabled>Удалить</button>
+    </div>
+
+    <div id="boards-message" class="message" hidden></div>
+    <div id="boards-error" class="message error" hidden>
+      Не удалось загрузить доски.
+      <button id="retry-boards-button" class="ghost compact" type="button">Повторить</button>
+    </div>
+
     <div class="toolbar">
       <nav class="quick-filters" aria-label="Быстрые фильтры задач">
         <button class="filter-button active" type="button" data-filter="all">Все</button>
@@ -431,7 +483,12 @@
     <div class="layout">
       <section class="panel">
         <h2>Новая задача</h2>
+        <div class="empty" id="no-board-form-state" hidden>
+          <strong>Сначала создайте доску, чтобы добавлять задачи.</strong>
+          Задачи всегда привязаны к выбранной доске.
+        </div>
         <form id="create-task-form" method="post" action="/ui/tasks" novalidate>
+          <input id="create-task-board-id" name="board_id" type="hidden">
           <label>
             Название
             <input name="name" type="text" required autocomplete="off">
@@ -450,73 +507,22 @@
       </section>
 
       <section class="panel">
-        <h2>Мои задачи</h2>
-        {{ if .tasks }}
-          <div class="task-list">
-            {{ range .tasks }}
-              <article class="task-item" data-task-status="{{ .Status }}">
-                <div class="task-view">
-                  <div class="task-head">
-                    <div>
-                      <h3 class="task-title">{{ .Name }}</h3>
-                    </div>
-                    <span class="badge {{ .StatusClass }}">{{ .StatusLabel }}</span>
-                  </div>
-
-                  {{ if .Description }}
-                    <p class="task-description">{{ .Description }}</p>
-                  {{ end }}
-
-                  <div class="task-meta">
-                    <span class="{{ .DueToClass }}">Срок: {{ .DueTo }}</span>
-                    <span>Обновлена: {{ .UpdatedAt }}</span>
-                  </div>
-
-                  <div class="task-actions">
-                    <button class="ghost compact" type="button" data-edit-task>Изменить</button>
-                    <form method="post" action="/ui/tasks/delete" onsubmit="return confirm('Удалить задачу?');">
-                      <input type="hidden" name="task_id" value="{{ .ID }}">
-                      <button class="danger compact" type="submit">Удалить</button>
-                    </form>
-                  </div>
-                </div>
-
-                <form class="edit-grid" method="post" action="/ui/tasks/update">
-                  <input type="hidden" name="task_id" value="{{ .ID }}">
-                  <label>
-                    Название
-                    <input name="name" type="text" value="{{ .Name }}" required>
-                  </label>
-                  <label>
-                    Статус
-                    <select name="status">
-                      <option value="todo" {{ if eq .Status "todo" }}selected{{ end }}>Новая</option>
-                      <option value="in_progress" {{ if eq .Status "in_progress" }}selected{{ end }}>В работе</option>
-                      <option value="done" {{ if eq .Status "done" }}selected{{ end }}>Готова к тестированию</option>
-                      <option value="closed" {{ if eq .Status "closed" }}selected{{ end }}>Закрыта</option>
-                      <option value="archieved" {{ if eq .Status "archieved" }}selected{{ end }}>В архиве</option>
-                    </select>
-                  </label>
-                  <label>
-                    Срок
-                    <input name="due_to" type="datetime-local" value="{{ .DueToInput }}">
-                  </label>
-                  <div class="edit-actions">
-                    <button type="submit">Сохранить</button>
-                    <button class="ghost" type="button" data-cancel-edit>Отмена</button>
-                  </div>
-                  <label>
-                    Описание
-                    <textarea name="description">{{ .Description }}</textarea>
-                  </label>
-                </form>
-              </article>
-            {{ end }}
+        <h2 id="task-list-title">Задачи доски</h2>
+        <div class="empty" id="tasks-loading" hidden>Загружаем задачи...</div>
+        <div class="message error" id="tasks-error" hidden>Не удалось загрузить задачи выбранной доски.</div>
+        <div class="empty" id="no-boards-state" hidden>
+          <strong>У вас пока нет досок.</strong>
+          Создайте первую доску, чтобы начать работать с задачами.
+          <div class="task-actions" style="margin-top: 14px;">
+            <button type="button" data-create-board-empty>Создать доску</button>
           </div>
-          <div class="empty" id="filtered-empty" hidden>По выбранному фильтру задач нет.</div>
-        {{ else }}
-          <div class="empty">Пока нет задач. Создайте первую задачу слева.</div>
-        {{ end }}
+        </div>
+        <div class="empty" id="empty-board-state" hidden>
+          <strong>На этой доске пока нет задач.</strong>
+          Создайте первую задачу слева.
+        </div>
+        <div class="task-list" id="task-list"></div>
+        <div class="empty" id="filtered-empty" hidden>По выбранному фильтру задач нет.</div>
       </section>
     </div>
   </main>
@@ -527,32 +533,354 @@
       }
     });
 
-    document.querySelectorAll("[data-edit-task]").forEach((button) => {
-      button.addEventListener("click", () => {
-        const card = button.closest(".task-item");
-        if (card) {
-          card.classList.add("is-editing");
-        }
-      });
-    });
-
-    document.querySelectorAll("[data-cancel-edit]").forEach((button) => {
-      button.addEventListener("click", () => {
-        const card = button.closest(".task-item");
-        if (card) {
-          card.classList.remove("is-editing");
-        }
-      });
-    });
-
+    const app = document.querySelector("#task-app");
+    const teamId = app ? app.dataset.teamId : "";
+    const boardSelect = document.querySelector("#board-select");
+    const createBoardButton = document.querySelector("#create-board-button");
+    const renameBoardButton = document.querySelector("#rename-board-button");
+    const deleteBoardButton = document.querySelector("#delete-board-button");
+    const retryBoardsButton = document.querySelector("#retry-boards-button");
+    const boardsMessage = document.querySelector("#boards-message");
+    const boardsError = document.querySelector("#boards-error");
+    const taskListTitle = document.querySelector("#task-list-title");
+    const taskList = document.querySelector("#task-list");
+    const tasksLoading = document.querySelector("#tasks-loading");
+    const tasksError = document.querySelector("#tasks-error");
+    const noBoardsState = document.querySelector("#no-boards-state");
+    const emptyBoardState = document.querySelector("#empty-board-state");
+    const noBoardFormState = document.querySelector("#no-board-form-state");
+    const taskBoardInput = document.querySelector("#create-task-board-id");
     const filterButtons = document.querySelectorAll("[data-filter]");
-    const taskCards = document.querySelectorAll("[data-task-status]");
     const filteredEmpty = document.querySelector("#filtered-empty");
+    const selectedBoardStorageKey = "task_tracker_selected_board_id";
+
+    const state = {
+      boards: [],
+      selectedBoardId: "",
+      selectedBoard: null,
+      tasks: [],
+      activeFilter: "all",
+      isBoardsLoading: false,
+      isTasksLoading: false,
+      boardsError: "",
+    };
+
+    const escapeHTML = (value) => String(value || "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+
+    const requestJSON = async (url, options = {}) => {
+      const response = await fetch(url, {
+        credentials: "same-origin",
+        headers: {
+          "Accept": "application/json",
+          ...(options.body ? { "Content-Type": "application/json" } : {}),
+          ...(options.headers || {}),
+        },
+        ...options,
+      });
+
+      if (response.status === 401 || response.status === 403) {
+        window.location.replace("/ui/users/create?auth=required");
+        throw new Error("unauthorized");
+      }
+
+      let data = {};
+      try {
+        data = await response.json();
+      } catch (_) {
+        data = {};
+      }
+
+      if (!response.ok) {
+        throw new Error(data.error || "request failed");
+      }
+
+      return data;
+    };
+
+    const showMessage = (text, isError = false) => {
+      if (!boardsMessage) {
+        return;
+      }
+      boardsMessage.hidden = !text;
+      boardsMessage.textContent = text;
+      boardsMessage.classList.toggle("error", isError);
+    };
+
+    const selectedBoardName = () => state.selectedBoard ? state.selectedBoard.name : "";
+
+    const renderBoardControls = () => {
+      if (!boardSelect) {
+        return;
+      }
+
+      boardSelect.innerHTML = "";
+      if (state.isBoardsLoading) {
+        boardSelect.append(new Option("Загружаем доски...", ""));
+      } else if (state.boards.length === 0) {
+        boardSelect.append(new Option("Досок пока нет", ""));
+      } else {
+        state.boards.forEach((board) => {
+          boardSelect.append(new Option(board.name, board.id));
+        });
+      }
+
+      boardSelect.value = state.selectedBoardId || "";
+      boardSelect.disabled = state.isBoardsLoading || state.boards.length === 0;
+      if (renameBoardButton) {
+        renameBoardButton.disabled = !state.selectedBoardId;
+      }
+      if (deleteBoardButton) {
+        deleteBoardButton.disabled = !state.selectedBoardId;
+      }
+    };
+
+    const setTaskFormEnabled = (enabled) => {
+      if (!createForm) {
+        return;
+      }
+      createForm.hidden = !enabled;
+      if (noBoardFormState) {
+        noBoardFormState.hidden = enabled;
+      }
+      createForm.querySelectorAll("input, textarea, button").forEach((field) => {
+        if (field.type !== "hidden") {
+          field.disabled = !enabled;
+        }
+      });
+      if (taskBoardInput) {
+        taskBoardInput.value = enabled ? state.selectedBoardId : "";
+      }
+    };
+
+    const statusLabel = (status) => {
+      switch (status) {
+      case "todo":
+        return "Новая";
+      case "in_progress":
+        return "В работе";
+      case "done":
+        return "Готова к тестированию";
+      case "closed":
+        return "Закрыта";
+      case "archieved":
+        return "В архиве";
+      default:
+        return "Без статуса";
+      }
+    };
+
+    const statusClass = (status, overdue) => {
+      if (overdue) {
+        return "status-overdue";
+      }
+      switch (status) {
+      case "todo":
+        return "status-todo";
+      case "in_progress":
+        return "status-progress";
+      case "done":
+        return "status-done";
+      case "closed":
+        return "status-closed";
+      case "archieved":
+        return "status-archived";
+      default:
+        return "status-empty";
+      }
+    };
+
+    const parseDate = (value) => {
+      if (!value) {
+        return null;
+      }
+      const parsed = new Date(value);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed;
+      }
+
+      const goTimeMatch = String(value).match(/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})/);
+      if (!goTimeMatch) {
+        return null;
+      }
+
+      const fallback = new Date(`${goTimeMatch[1]}T${goTimeMatch[2]}Z`);
+      return Number.isNaN(fallback.getTime()) ? null : fallback;
+    };
+
+    const formatDate = (value) => {
+      const parsed = parseDate(value);
+      if (!parsed) {
+        return "";
+      }
+      return new Intl.DateTimeFormat("ru-RU", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(parsed);
+    };
+
+    const dateTimeInputValue = (value) => {
+      const parsed = parseDate(value);
+      if (!parsed) {
+        return "";
+      }
+      const offset = parsed.getTimezoneOffset();
+      const local = new Date(parsed.getTime() - offset * 60 * 1000);
+      return local.toISOString().slice(0, 16);
+    };
+
+    const isOverdue = (task) => {
+      const dueTo = parseDate(task.due_to);
+      if (!dueTo) {
+        return false;
+      }
+      return !["done", "closed", "archieved"].includes(task.status) && dueTo.getTime() < Date.now();
+    };
+
+    const statusRank = (status) => {
+      switch (status) {
+      case "todo":
+        return 1;
+      case "in_progress":
+        return 2;
+      case "done":
+        return 3;
+      case "closed":
+        return 4;
+      case "archieved":
+        return 5;
+      default:
+        return 99;
+      }
+    };
+
+    const sortedTasks = () => [...state.tasks].sort((left, right) => {
+      const rankDiff = statusRank(left.status) - statusRank(right.status);
+      if (rankDiff !== 0) {
+        return rankDiff;
+      }
+      const leftDue = parseDate(left.due_to);
+      const rightDue = parseDate(right.due_to);
+      if (!leftDue && !rightDue) {
+        return (parseDate(right.created_at)?.getTime() || 0) - (parseDate(left.created_at)?.getTime() || 0);
+      }
+      if (!leftDue) {
+        return 1;
+      }
+      if (!rightDue) {
+        return -1;
+      }
+      return leftDue.getTime() - rightDue.getTime();
+    });
+
+    const renderTaskCard = (task) => {
+      const overdue = isOverdue(task);
+      const description = task.description
+        ? `<p class="task-description">${escapeHTML(task.description)}</p>`
+        : "";
+      const dueText = task.due_to ? formatDate(task.due_to) : "Без срока";
+      const updatedText = task.updated_at ? formatDate(task.updated_at) : "Нет данных";
+
+      return `
+        <article class="task-item" data-task-status="${escapeHTML(task.status)}" data-task-id="${escapeHTML(task.id)}">
+          <div class="task-view">
+            <div class="task-head">
+              <div>
+                <h3 class="task-title">${escapeHTML(task.name)}</h3>
+              </div>
+              <span class="badge ${statusClass(task.status, overdue)}">${statusLabel(task.status)}</span>
+            </div>
+            ${description}
+            <div class="task-meta">
+              <span class="${overdue ? "due-overdue" : "due-normal"}">Срок: ${escapeHTML(dueText)}</span>
+              <span>Обновлена: ${escapeHTML(updatedText)}</span>
+            </div>
+            <div class="task-actions">
+              <button class="ghost compact" type="button" data-edit-task>Изменить</button>
+              <button class="danger compact" type="button" data-delete-task>Удалить</button>
+            </div>
+          </div>
+
+          <form class="edit-grid" data-edit-form>
+            <label>
+              Название
+              <input name="name" type="text" value="${escapeHTML(task.name)}" required>
+            </label>
+            <label>
+              Статус
+              <select name="status">
+                <option value="todo" ${task.status === "todo" ? "selected" : ""}>Новая</option>
+                <option value="in_progress" ${task.status === "in_progress" ? "selected" : ""}>В работе</option>
+                <option value="done" ${task.status === "done" ? "selected" : ""}>Готова к тестированию</option>
+                <option value="closed" ${task.status === "closed" ? "selected" : ""}>Закрыта</option>
+                <option value="archieved" ${task.status === "archieved" ? "selected" : ""}>В архиве</option>
+              </select>
+            </label>
+            <label>
+              Срок
+              <input name="due_to" type="datetime-local" value="${dateTimeInputValue(task.due_to)}">
+            </label>
+            <div class="edit-actions">
+              <button type="submit">Сохранить</button>
+              <button class="ghost" type="button" data-cancel-edit>Отмена</button>
+            </div>
+            <label>
+              Описание
+              <textarea name="description">${escapeHTML(task.description)}</textarea>
+            </label>
+          </form>
+        </article>
+      `;
+    };
+
+    const renderTasks = () => {
+      if (taskListTitle) {
+        taskListTitle.textContent = state.selectedBoard
+          ? `Задачи доски «${selectedBoardName()}»`
+          : "Задачи доски";
+      }
+
+      if (tasksLoading) {
+        tasksLoading.hidden = !state.isTasksLoading;
+      }
+      if (tasksError) {
+        tasksError.hidden = true;
+      }
+      if (noBoardsState) {
+        noBoardsState.hidden = state.isBoardsLoading || state.boards.length !== 0;
+      }
+      if (emptyBoardState) {
+        emptyBoardState.hidden = state.isTasksLoading || !state.selectedBoardId || state.tasks.length !== 0;
+      }
+      if (filteredEmpty) {
+        filteredEmpty.hidden = true;
+      }
+      setTaskFormEnabled(Boolean(state.selectedBoardId));
+
+      if (!taskList) {
+        return;
+      }
+      if (state.isTasksLoading || !state.selectedBoardId || state.tasks.length === 0) {
+        taskList.innerHTML = "";
+        return;
+      }
+
+      taskList.innerHTML = sortedTasks().map(renderTaskCard).join("");
+      applyFilter(state.activeFilter);
+    };
 
     const applyFilter = (filter) => {
       let visibleCount = 0;
+      state.activeFilter = filter;
 
-      taskCards.forEach((card) => {
+      document.querySelectorAll("[data-task-status]").forEach((card) => {
         const visible = filter === "all" || card.dataset.taskStatus === filter;
         card.hidden = !visible;
         if (visible) {
@@ -565,7 +893,7 @@
       });
 
       if (filteredEmpty) {
-        filteredEmpty.hidden = visibleCount !== 0;
+        filteredEmpty.hidden = visibleCount !== 0 || state.tasks.length === 0 || !state.selectedBoardId;
       }
     };
 
@@ -592,10 +920,13 @@
       };
 
       createForm.addEventListener("submit", (event) => {
+        event.preventDefault();
         if (!validateName()) {
-          event.preventDefault();
           nameInput.focus();
+          return;
         }
+
+        createTask(new FormData(createForm));
       });
 
       if (nameInput) {
@@ -606,6 +937,318 @@
         });
       }
     }
+
+    const dueToPayload = (value) => {
+      if (!value) {
+        return null;
+      }
+      return new Date(value).toISOString();
+    };
+
+    const createTask = async (formData) => {
+      if (!state.selectedBoardId) {
+        showMessage("Сначала выберите или создайте доску.", true);
+        return;
+      }
+
+      const payload = {
+        name: String(formData.get("name") || "").trim(),
+        description: String(formData.get("description") || ""),
+        board_id: state.selectedBoardId,
+      };
+      const dueTo = dueToPayload(String(formData.get("due_to") || ""));
+      if (dueTo) {
+        payload.due_to = dueTo;
+      }
+
+      try {
+        await requestJSON("/task/create", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+        createForm.reset();
+        showMessage("Задача создана");
+        await loadTasksForSelectedBoard();
+      } catch (error) {
+        if (error.message !== "unauthorized") {
+          showMessage("Не удалось создать задачу.", true);
+        }
+      }
+    };
+
+    const updateTask = async (taskId, form) => {
+      const formData = new FormData(form);
+      const payload = {
+        name: String(formData.get("name") || "").trim(),
+        description: String(formData.get("description") || ""),
+        status: String(formData.get("status") || "todo"),
+        board_id: state.selectedBoardId,
+      };
+      const dueTo = dueToPayload(String(formData.get("due_to") || ""));
+      if (dueTo) {
+        payload.due_to = dueTo;
+      }
+
+      try {
+        await requestJSON(`/task/update/${taskId}`, {
+          method: "PATCH",
+          body: JSON.stringify(payload),
+        });
+        showMessage("Задача обновлена");
+        await loadTasksForSelectedBoard();
+      } catch (error) {
+        if (error.message !== "unauthorized") {
+          showMessage("Не удалось обновить задачу.", true);
+        }
+      }
+    };
+
+    const deleteTask = async (taskId) => {
+      if (!confirm("Удалить задачу?")) {
+        return;
+      }
+
+      try {
+        await requestJSON(`/task/delete/${taskId}`, { method: "DELETE" });
+        showMessage("Задача удалена");
+        await loadTasksForSelectedBoard();
+      } catch (error) {
+        if (error.message !== "unauthorized") {
+          showMessage("Не удалось удалить задачу.", true);
+        }
+      }
+    };
+
+    const selectBoard = async (boardId) => {
+      state.selectedBoardId = boardId || "";
+      state.selectedBoard = state.boards.find((board) => board.id === state.selectedBoardId) || null;
+
+      if (state.selectedBoardId) {
+        localStorage.setItem(selectedBoardStorageKey, state.selectedBoardId);
+      } else {
+        localStorage.removeItem(selectedBoardStorageKey);
+      }
+
+      state.tasks = [];
+      renderBoardControls();
+      renderTasks();
+
+      if (state.selectedBoardId) {
+        await loadTasksForSelectedBoard();
+      }
+    };
+
+    const loadBoards = async () => {
+      state.isBoardsLoading = true;
+      state.boardsError = "";
+      if (boardsError) {
+        boardsError.hidden = true;
+      }
+      renderBoardControls();
+      renderTasks();
+
+      try {
+        const data = await requestJSON("/board/list");
+        state.boards = Array.isArray(data.boards) ? data.boards : [];
+        const savedBoardId = localStorage.getItem(selectedBoardStorageKey);
+        const firstAvailableBoard = state.boards[0] ? state.boards[0].id : "";
+        const nextBoardId = state.boards.some((board) => board.id === savedBoardId)
+          ? savedBoardId
+          : firstAvailableBoard;
+        state.isBoardsLoading = false;
+        renderBoardControls();
+        await selectBoard(nextBoardId);
+      } catch (error) {
+        state.isBoardsLoading = false;
+        state.boardsError = error.message;
+        state.boards = [];
+        state.selectedBoardId = "";
+        state.selectedBoard = null;
+        state.tasks = [];
+        if (boardsError && error.message !== "unauthorized") {
+          boardsError.hidden = false;
+        }
+        renderBoardControls();
+        renderTasks();
+      }
+    };
+
+    const loadTasksForSelectedBoard = async () => {
+      if (!state.selectedBoardId) {
+        state.tasks = [];
+        renderTasks();
+        return;
+      }
+
+      state.isTasksLoading = true;
+      state.tasks = [];
+      renderTasks();
+
+      try {
+        const data = await requestJSON(`/task/get_by_board/${state.selectedBoardId}`);
+        state.tasks = Array.isArray(data.tasks) ? data.tasks : [];
+        state.isTasksLoading = false;
+        renderTasks();
+      } catch (error) {
+        state.isTasksLoading = false;
+        state.tasks = [];
+        if (tasksError && error.message !== "unauthorized") {
+          tasksError.hidden = false;
+        }
+        renderTasks();
+      }
+    };
+
+    const createBoard = async () => {
+      if (!teamId) {
+        showMessage("Для создания доски у пользователя должна быть команда.", true);
+        return;
+      }
+
+      const name = prompt("Название новой доски");
+      if (name === null) {
+        return;
+      }
+      const trimmedName = name.trim();
+      if (!trimmedName) {
+        showMessage("Введите название доски.", true);
+        return;
+      }
+
+      try {
+        const data = await requestJSON("/board/create", {
+          method: "POST",
+          body: JSON.stringify({
+            team_id: teamId,
+            name: trimmedName,
+            is_public: false,
+          }),
+        });
+        const board = data.board;
+        if (board) {
+          state.boards = [board, ...state.boards.filter((item) => item.id !== board.id)];
+          showMessage("Доска создана");
+          await selectBoard(board.id);
+        }
+      } catch (error) {
+        if (error.message !== "unauthorized") {
+          showMessage("Не удалось создать доску.", true);
+        }
+      }
+    };
+
+    const renameBoard = async () => {
+      if (!state.selectedBoard) {
+        return;
+      }
+
+      const name = prompt("Новое название доски", state.selectedBoard.name);
+      if (name === null) {
+        return;
+      }
+      const trimmedName = name.trim();
+      if (!trimmedName) {
+        showMessage("Название доски не может быть пустым.", true);
+        return;
+      }
+
+      try {
+        const data = await requestJSON(`/board/update/${state.selectedBoardId}`, {
+          method: "PATCH",
+          body: JSON.stringify({ name: trimmedName }),
+        });
+        const updatedBoard = data.board;
+        if (updatedBoard) {
+          state.boards = state.boards.map((board) => board.id === updatedBoard.id ? updatedBoard : board);
+          state.selectedBoard = updatedBoard;
+          showMessage("Доска переименована");
+          renderBoardControls();
+          renderTasks();
+        }
+      } catch (error) {
+        if (error.message !== "unauthorized") {
+          showMessage("Не удалось переименовать доску.", true);
+        }
+      }
+    };
+
+    const deleteBoard = async () => {
+      if (!state.selectedBoard) {
+        return;
+      }
+      if (!confirm(`Удалить доску «${state.selectedBoard.name}»? Задачи этой доски также могут быть удалены.`)) {
+        return;
+      }
+
+      try {
+        await requestJSON(`/board/delete/${state.selectedBoardId}`, { method: "DELETE" });
+        const deletedBoardId = state.selectedBoardId;
+        state.boards = state.boards.filter((board) => board.id !== deletedBoardId);
+        showMessage("Доска удалена");
+        await selectBoard(state.boards[0] ? state.boards[0].id : "");
+      } catch (error) {
+        if (error.message !== "unauthorized") {
+          showMessage("Не удалось удалить доску.", true);
+        }
+      }
+    };
+
+    if (boardSelect) {
+      boardSelect.addEventListener("change", () => {
+        selectBoard(boardSelect.value);
+      });
+    }
+    if (createBoardButton) {
+      createBoardButton.addEventListener("click", createBoard);
+    }
+    document.querySelectorAll("[data-create-board-empty]").forEach((button) => {
+      button.addEventListener("click", createBoard);
+    });
+    if (renameBoardButton) {
+      renameBoardButton.addEventListener("click", renameBoard);
+    }
+    if (deleteBoardButton) {
+      deleteBoardButton.addEventListener("click", deleteBoard);
+    }
+    if (retryBoardsButton) {
+      retryBoardsButton.addEventListener("click", loadBoards);
+    }
+
+    if (taskList) {
+      taskList.addEventListener("click", (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) {
+          return;
+        }
+        const card = target.closest(".task-item");
+        if (!card) {
+          return;
+        }
+        if (target.matches("[data-edit-task]")) {
+          card.classList.add("is-editing");
+        }
+        if (target.matches("[data-cancel-edit]")) {
+          card.classList.remove("is-editing");
+        }
+        if (target.matches("[data-delete-task]")) {
+          deleteTask(card.dataset.taskId);
+        }
+      });
+
+      taskList.addEventListener("submit", (event) => {
+        const form = event.target;
+        if (!(form instanceof HTMLFormElement) || !form.matches("[data-edit-form]")) {
+          return;
+        }
+        event.preventDefault();
+        const card = form.closest(".task-item");
+        if (card && card.dataset.taskId) {
+          updateTask(card.dataset.taskId, form);
+        }
+      });
+    }
+
+    loadBoards();
   </script>
 </body>
 </html>

@@ -32,10 +32,40 @@ type userRepo struct {
 	db *sql.DB
 }
 
+type userRowScanner interface {
+	Scan(dest ...any) error
+}
+
 func NewUserRepo(db *sql.DB) UserRepo {
 	return &userRepo{
 		db: db,
 	}
+}
+
+func scanUser(scanner userRowScanner) (*User, error) {
+	var (
+		user   User
+		teamID uuid.NullUUID
+	)
+
+	err := scanner.Scan(
+		&user.ID,
+		&teamID,
+		&user.Email,
+		&user.Password,
+		&user.Role,
+		&user.PersonalDataID,
+		&user.IsActive,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if teamID.Valid {
+		user.TeamID = &teamID.UUID
+	}
+
+	return &user, nil
 }
 
 func (r *userRepo) Create(ctx context.Context, user User) (*User, error) {
@@ -81,8 +111,6 @@ func (r *userRepo) Create(ctx context.Context, user User) (*User, error) {
 }
 
 func (r *userRepo) GetByEmail(ctx context.Context, email string) (*User, error) {
-	var user User
-
 	const query = `
 		SELECT id, team_id, email, password, role, personal_data_id, is_active
 		FROM users
@@ -90,47 +118,29 @@ func (r *userRepo) GetByEmail(ctx context.Context, email string) (*User, error) 
 	`
 
 	if tx, ok := db.GetTx(ctx); ok {
-		err := tx.QueryRowContext(
+		user, err := scanUser(tx.QueryRowContext(
 			ctx,
 			query,
 			email,
-		).Scan(
-			&user.ID,
-			&user.TeamID,
-			&user.Email,
-			&user.Password,
-			&user.Role,
-			&user.PersonalDataID,
-			&user.IsActive,
-		)
+		))
 		if err != nil {
 			return nil, dberrors.Map(err)
 		}
-		return &user, nil
+		return user, nil
 	}
 
-	err := r.db.QueryRowContext(
+	user, err := scanUser(r.db.QueryRowContext(
 		ctx,
 		query,
 		email,
-	).Scan(
-		&user.ID,
-		&user.TeamID,
-		&user.Email,
-		&user.Password,
-		&user.Role,
-		&user.PersonalDataID,
-		&user.IsActive,
-	)
+	))
 	if err != nil {
 		return nil, dberrors.Map(err)
 	}
-	return &user, nil
+	return user, nil
 }
 
 func (r *userRepo) GetByID(ctx context.Context, id uuid.UUID) (*User, error) {
-	var user User
-
 	const query = `
 		SELECT id, team_id, email, password, role, personal_data_id, is_active
 		FROM users
@@ -138,42 +148,26 @@ func (r *userRepo) GetByID(ctx context.Context, id uuid.UUID) (*User, error) {
 	`
 
 	if tx, ok := db.GetTx(ctx); ok {
-		err := tx.QueryRowContext(
+		user, err := scanUser(tx.QueryRowContext(
 			ctx,
 			query,
 			id,
-		).Scan(
-			&user.ID,
-			&user.TeamID,
-			&user.Email,
-			&user.Password,
-			&user.Role,
-			&user.PersonalDataID,
-			&user.IsActive,
-		)
+		))
 		if err != nil {
 			return nil, dberrors.Map(err)
 		}
-		return &user, nil
+		return user, nil
 	}
 
-	err := r.db.QueryRowContext(
+	user, err := scanUser(r.db.QueryRowContext(
 		ctx,
 		query,
 		id,
-	).Scan(
-		&user.ID,
-		&user.TeamID,
-		&user.Email,
-		&user.Password,
-		&user.Role,
-		&user.PersonalDataID,
-		&user.IsActive,
-	)
+	))
 	if err != nil {
 		return nil, dberrors.Map(err)
 	}
-	return &user, nil
+	return user, nil
 }
 
 func (r *userRepo) ListActive(ctx context.Context) ([]*User, error) {
@@ -202,22 +196,12 @@ func (r *userRepo) ListActive(ctx context.Context) ([]*User, error) {
 	var users []*User
 
 	for rows.Next() {
-		var u User
-
-		err := rows.Scan(
-			&u.ID,
-			&u.TeamID,
-			&u.Email,
-			&u.Password,
-			&u.Role,
-			&u.PersonalDataID,
-			&u.IsActive,
-		)
+		u, err := scanUser(rows)
 		if err != nil {
 			return nil, dberrors.Map(err)
 		}
 
-		users = append(users, &u)
+		users = append(users, u)
 	}
 
 	if err := rows.Err(); err != nil {
@@ -252,22 +236,12 @@ func (r *userRepo) List(ctx context.Context) ([]*User, error) {
 	var users []*User
 
 	for rows.Next() {
-		var u User
-
-		err := rows.Scan(
-			&u.ID,
-			&u.TeamID,
-			&u.Email,
-			&u.Password,
-			&u.Role,
-			&u.PersonalDataID,
-			&u.IsActive,
-		)
+		u, err := scanUser(rows)
 		if err != nil {
 			return nil, dberrors.Map(err)
 		}
 
-		users = append(users, &u)
+		users = append(users, u)
 	}
 
 	if err := rows.Err(); err != nil {

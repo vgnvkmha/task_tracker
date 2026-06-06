@@ -412,9 +412,24 @@ func (s *service) GetProfileByID(ctx context.Context, id uuid.UUID) (*Profile, e
 			return ErrPersonalDataNotFound
 		}
 
+		teamName := ""
+		if foundUser.TeamID != nil {
+			team, err := s.teamRepo.GetByID(ctx, *foundUser.TeamID)
+			if err != nil {
+				logFailure(s.logger, "get team by ID failed", err,
+					"operation", "get_profile_by_id",
+					"id", id,
+					"team_id", *foundUser.TeamID,
+				)
+			} else if team != nil {
+				teamName = team.Name
+			}
+		}
+
 		result = &Profile{
 			User:         foundUser,
 			PersonalData: pd,
+			TeamName:     teamName,
 		}
 		return nil
 	})

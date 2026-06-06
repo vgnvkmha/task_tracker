@@ -7,6 +7,7 @@ import (
 	"time"
 
 	taskApplication "task_tracker/internal/application/task"
+	"task_tracker/internal/domain/auth"
 	domaintask "task_tracker/internal/domain/task"
 	dto "task_tracker/internal/handler/task/dto"
 	"task_tracker/internal/transport/http/middleware"
@@ -268,23 +269,10 @@ func (h *handler) ShowTasks(ctx *gin.Context) {
 		return
 	}
 
-	tasks, err := h.service.FindMany(ctx.Request.Context(), actor, taskApplication.TaskFilters{
-		ReporterID: &actor.ID,
-	})
-	if err != nil {
-		ctx.HTML(http.StatusOK, "task_page", gin.H{
-			"title":   "Задачи",
-			"tasks":   []taskView{},
-			"error":   "Не удалось загрузить задачи",
-			"message": taskMessage(ctx.Query("message")),
-		})
-		return
-	}
-
-	sortTasksForUI(tasks)
 	ctx.HTML(http.StatusOK, "task_page", gin.H{
 		"title":   "Задачи",
-		"tasks":   newTaskViews(tasks),
+		"tasks":   []taskView{},
+		"team_id": actorTeamID(actor),
 		"message": taskMessage(ctx.Query("message")),
 		"error":   taskError(ctx.Query("error")),
 	})
@@ -584,4 +572,11 @@ func isTaskOverdue(task *taskApplication.Task) bool {
 		return false
 	}
 	return time.Now().After(task.DueTo)
+}
+
+func actorTeamID(actor auth.Actor) string {
+	if actor.TeamID == nil {
+		return ""
+	}
+	return actor.TeamID.String()
 }

@@ -137,6 +137,8 @@ func NewLoginFormRequest(r *http.Request) (LoginFormRequest, error) {
 
 type UpdateProfileFormRequest struct {
 	UserID    uuid.UUID
+	TeamID    *uuid.UUID
+	TeamName  *string
 	Email     *string
 	Password  *string
 	FirstName *string
@@ -161,6 +163,16 @@ func NewUpdateProfileFormRequest(r *http.Request) (UpdateProfileFormRequest, err
 	}
 	if value := r.PostFormValue("password"); value != "" {
 		request.Password = &value
+	}
+	if value := strings.TrimSpace(r.PostFormValue("team_id")); value != "" {
+		teamID, err := uuid.Parse(value)
+		if err != nil {
+			return UpdateProfileFormRequest{}, userApplication.ErrInvalidTeamID
+		}
+		request.TeamID = &teamID
+	}
+	if value := strings.TrimSpace(r.PostFormValue("team_name")); value != "" {
+		request.TeamName = &value
 	}
 	if value := strings.TrimSpace(r.PostFormValue("first_name")); value != "" {
 		request.FirstName = &value
@@ -194,6 +206,8 @@ func NewUpdateProfileFormRequest(r *http.Request) (UpdateProfileFormRequest, err
 func (r UpdateProfileFormRequest) ToServiceInput() userApplication.UpdateUserInput {
 	return userApplication.UpdateUserInput{
 		UserID:    r.UserID,
+		TeamId:    r.TeamID,
+		TeamName:  r.TeamName,
 		Email:     r.Email,
 		Password:  r.Password,
 		FirstName: r.FirstName,

@@ -7,25 +7,29 @@ import (
 )
 
 type CabinetView struct {
-	ID        string
-	Email     string
-	Role      string
-	TeamID    string
-	FirstName string
-	LastName  string
-	Age       string
-	BirthDate string
-	IsActive  bool
+	ID          string
+	Email       string
+	Role        string
+	TeamID      string
+	TeamName    string
+	CanEditTeam bool
+	FirstName   string
+	LastName    string
+	Age         string
+	BirthDate   string
+	IsActive    bool
 }
 
 func NewCabinetView(profile *userApplication.Profile) CabinetView {
 	view := CabinetView{
-		ID:        profile.User.ID.String(),
-		Email:     string(profile.User.Email),
-		Role:      string(profile.User.Role),
-		FirstName: profile.PersonalData.FirstName,
-		LastName:  profile.PersonalData.LastName,
-		IsActive:  profile.User.IsActive,
+		ID:          profile.User.ID.String(),
+		Email:       string(profile.User.Email),
+		Role:        string(profile.User.Role),
+		TeamName:    profile.TeamName,
+		CanEditTeam: profile.User.Role.IsManagerRole(),
+		FirstName:   profile.PersonalData.FirstName,
+		LastName:    profile.PersonalData.LastName,
+		IsActive:    profile.User.IsActive,
 	}
 
 	if profile.User.TeamID != nil {

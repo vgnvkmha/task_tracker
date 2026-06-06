@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	board_application "task_tracker/internal/application/board"
 	task_service "task_tracker/internal/application/task"
 	team_application "task_tracker/internal/application/team"
 	"task_tracker/internal/application/user"
@@ -14,6 +15,7 @@ import (
 	"task_tracker/internal/repo/team"
 	userRepo "task_tracker/internal/repo/user"
 	auth_handler "task_tracker/internal/transport/http/auth"
+	board_handler "task_tracker/internal/transport/http/board"
 	"task_tracker/internal/transport/http/middleware"
 	team_handler "task_tracker/internal/transport/http/team"
 	handler_user "task_tracker/internal/transport/http/user"
@@ -52,6 +54,7 @@ func Run() error {
 	personalDataRepo := userRepo.NewPersonalDataRepo(pDb)
 	teamRepo := team.NewTeamRepo(pDb)
 	tasksRepo := taskRepo.NewTaskRepo(pDb)
+	boardsRepo := taskRepo.NewBoardRepo(pDb)
 
 	txManager := db.NewTxManager(pDb)
 	userService := user.New(usersRepo, personalDataRepo, teamRepo, logger, txManager)
@@ -62,6 +65,8 @@ func Run() error {
 	teamHandler := team_handler.New(teamService)
 	taskService := task_service.New(tasksRepo, logger, txManager)
 	taskHandler := task_handler.New(taskService)
+	boardService := board_application.New(boardsRepo, logger, txManager)
+	boardHandler := board_handler.New(boardService)
 
 	router := gin.Default()
 	router.SetTrustedProxies(nil) //TODO: change later
@@ -71,5 +76,6 @@ func Run() error {
 	handler_user.RegisterRoutes(router, userHandler, jwtService, authCfg.LegacyHeadersEnabled)
 	team_handler.RegisterRoutes(router, teamHandler, jwtService, authCfg.LegacyHeadersEnabled)
 	task_handler.RegisterRoutes(router, taskHandler, jwtService, authCfg.LegacyHeadersEnabled)
+	board_handler.RegisterRoutes(router, boardHandler, jwtService, authCfg.LegacyHeadersEnabled)
 	return router.RunTLS(":8080", "cert.pem", "key.pem")
 }

@@ -271,6 +271,14 @@
             <span class="field-error">Пароль слишком слабый</span>
           </label>
 
+          {{ if .profile.CanEditTeam }}
+            <label>
+              Команда
+              <input name="team_name" type="text" autocomplete="organization" value="{{ .profile.TeamName }}" placeholder="Название команды">
+              <span class="field-error">Введите название команды</span>
+            </label>
+          {{ end }}
+
           <label>
             Имя
             <input name="first_name" type="text" autocomplete="given-name" pattern="[^0-9]*" value="{{ .profile.FirstName }}" data-invalid-message="Имя не должно содержать цифры">
@@ -314,7 +322,7 @@
           </div>
           <div>
             <dt>Команда</dt>
-            <dd>{{ if .profile.TeamID }}{{ .profile.TeamID }}{{ else }}Не указана{{ end }}</dd>
+            <dd>{{ if .profile.TeamName }}{{ .profile.TeamName }}{{ else }}Не указана{{ end }}</dd>
           </div>
           <div>
             <dt>Статус</dt>

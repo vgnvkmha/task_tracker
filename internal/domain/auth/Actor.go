@@ -7,6 +7,7 @@ import (
 )
 
 type Actor struct {
-	ID   uuid.UUID
-	Role valueobjects.Role
+	ID     uuid.UUID
+	Role   valueobjects.Role
+	TeamID *uuid.UUID
 }
