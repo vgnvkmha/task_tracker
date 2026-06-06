@@ -152,6 +152,14 @@
       background: #1d5d4b;
     }
 
+    .secondary {
+      background: #315f8f;
+    }
+
+    .secondary:hover {
+      background: #24486d;
+    }
+
     .danger {
       width: 100%;
       background: #b42318;
@@ -226,7 +234,10 @@
         <h1>Личный кабинет</h1>
         <p class="meta">{{ .profile.Email }}</p>
       </div>
-      <a class="button" href="/ui/users/create">Выйти</a>
+      <div class="actions">
+        <a class="button secondary" href="/ui/tasks">Задачи</a>
+        <a class="button" href="/ui/users/create">Выйти</a>
+      </div>
     </header>
 
     {{ if .message }}

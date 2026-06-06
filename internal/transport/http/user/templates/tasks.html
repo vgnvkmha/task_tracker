@@ -1,0 +1,606 @@
+{{ define "task_page" }}
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ .title }}</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f6f7f9;
+      color: #1f2937;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+    }
+
+    main {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 36px 0;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 18px;
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(28px, 4vw, 42px);
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 0 0 16px;
+      font-size: 20px;
+      letter-spacing: 0;
+    }
+
+    .meta {
+      margin: 0;
+      color: #5b6472;
+    }
+
+    .toolbar,
+    .layout {
+      display: grid;
+      gap: 18px;
+    }
+
+    .toolbar {
+      grid-template-columns: 1fr;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .layout {
+      grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+      align-items: start;
+    }
+
+    section {
+      border: 1px solid #d7dce3;
+      border-radius: 8px;
+      background: #ffffff;
+      box-shadow: 0 18px 45px rgba(31, 41, 55, 0.08);
+    }
+
+    .panel {
+      padding: 20px;
+    }
+
+    form {
+      display: grid;
+      gap: 14px;
+    }
+
+    label {
+      display: grid;
+      gap: 7px;
+      font-size: 14px;
+      font-weight: 650;
+      color: #374151;
+    }
+
+    input,
+    textarea,
+    select {
+      width: 100%;
+      min-height: 42px;
+      box-sizing: border-box;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 0 12px;
+      font: inherit;
+      color: #111827;
+      background: #ffffff;
+    }
+
+    textarea {
+      min-height: 84px;
+      padding: 10px 12px;
+      resize: vertical;
+    }
+
+    input:focus,
+    textarea:focus,
+    select:focus {
+      outline: 3px solid #b8e2d2;
+      border-color: #268568;
+    }
+
+    button,
+    a.button {
+      min-height: 42px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 0;
+      border-radius: 6px;
+      padding: 0 16px;
+      font: inherit;
+      font-weight: 700;
+      color: #ffffff;
+      background: #26735d;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    button:hover,
+    a.button:hover {
+      background: #1d5d4b;
+    }
+
+    .secondary {
+      background: #315f8f;
+    }
+
+    .secondary:hover {
+      background: #24486d;
+    }
+
+    .ghost {
+      color: #374151;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+    }
+
+    .ghost:hover {
+      background: #eef2f7;
+    }
+
+    .danger {
+      color: #b42318;
+      border: 1px solid #f0b8b8;
+      background: #ffffff;
+    }
+
+    .danger:hover {
+      background: #fff1f1;
+    }
+
+    .compact {
+      min-height: 34px;
+      padding: 0 10px;
+      font-size: 13px;
+    }
+
+    .field-error {
+      display: none;
+      color: #b42318;
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    label.has-error input {
+      border-color: #d92d20;
+      background: #fff7f6;
+    }
+
+    label.has-error .field-error {
+      display: block;
+    }
+
+    .message {
+      margin-bottom: 18px;
+      padding: 14px 16px;
+      border-radius: 8px;
+      border: 1px solid #bdd7ca;
+      background: #eef8f3;
+      color: #174b3c;
+    }
+
+    .message.error {
+      border-color: #f1b6b6;
+      background: #fff1f1;
+      color: #922424;
+    }
+
+    .task-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .task-item {
+      padding: 14px;
+      border: 1px solid #d7dce3;
+      border-radius: 8px;
+      background: #ffffff;
+    }
+
+    .task-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .task-title {
+      margin: 0;
+      font-size: 17px;
+      line-height: 1.2;
+    }
+
+    .badge {
+      display: inline-flex;
+      min-height: 28px;
+      align-items: center;
+      border-radius: 999px;
+      padding: 0 10px;
+      font-size: 13px;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+
+    .status-todo {
+      background: #eef2ff;
+      color: #3730a3;
+    }
+
+    .status-progress {
+      background: #fff7db;
+      color: #7a4c00;
+    }
+
+    .status-done {
+      background: #eaf8ef;
+      color: #17603a;
+    }
+
+    .status-closed {
+      background: #eef2f7;
+      color: #475569;
+    }
+
+    .status-archived {
+      background: #f4eefa;
+      color: #6b2a8f;
+    }
+
+    .status-overdue {
+      background: #fff1f1;
+      color: #922424;
+    }
+
+    .status-empty {
+      background: #f3f4f6;
+      color: #4b5563;
+    }
+
+    .task-description,
+    .task-meta {
+      color: #5b6472;
+    }
+
+    .task-description {
+      margin: 8px 0 10px;
+      overflow-wrap: anywhere;
+    }
+
+    .task-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 14px;
+      margin-bottom: 12px;
+      font-size: 13px;
+    }
+
+    .due-overdue {
+      color: #b42318;
+      font-weight: 750;
+    }
+
+    .task-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .edit-grid {
+      display: none;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #e5e7eb;
+      grid-template-columns: minmax(160px, 1.2fr) minmax(130px, 0.8fr) minmax(160px, 0.8fr);
+      align-items: end;
+    }
+
+    .task-item.is-editing .edit-grid {
+      display: grid;
+    }
+
+    .task-item.is-editing .task-view {
+      display: none;
+    }
+
+    .edit-grid label:first-child {
+      grid-column: span 3;
+    }
+
+    .edit-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .empty {
+      padding: 28px;
+      border: 1px dashed #cbd5e1;
+      border-radius: 8px;
+      color: #5b6472;
+      background: #ffffff;
+    }
+
+    .quick-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .filter-button {
+      min-height: 34px;
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid #cbd5e1;
+      border-radius: 999px;
+      padding: 0 12px;
+      color: #374151;
+      background: #ffffff;
+      font-size: 14px;
+      font-weight: 700;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .filter-button:hover,
+    .filter-button.active {
+      border-color: #26735d;
+      color: #174b3c;
+      background: #eef8f3;
+    }
+
+    @media (max-width: 860px) {
+      main {
+        width: min(100% - 24px, 1180px);
+        padding: 28px 0;
+      }
+
+      header,
+      .toolbar,
+      .layout,
+      .task-head {
+        display: block;
+      }
+
+      .layout section + section {
+        margin-top: 18px;
+      }
+
+      .toolbar .button,
+      .toolbar button,
+      .task-actions,
+      header .button {
+        margin-top: 12px;
+      }
+
+      .task-item.is-editing .edit-grid,
+      .edit-grid label:first-child {
+        display: grid;
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <h1>Задачи</h1>
+        <p class="meta">Создание, редактирование и контроль задач</p>
+      </div>
+      <a class="button secondary" href="/ui/users/cabinet">Личный кабинет</a>
+    </header>
+
+    {{ if .message }}
+      <div class="message">{{ .message }}</div>
+    {{ end }}
+    {{ if .error }}
+      <div class="message error">{{ .error }}</div>
+    {{ end }}
+
+    <div class="toolbar">
+      <nav class="quick-filters" aria-label="Быстрые фильтры задач">
+        <button class="filter-button active" type="button" data-filter="all">Все</button>
+        <button class="filter-button" type="button" data-filter="todo">Новые</button>
+        <button class="filter-button" type="button" data-filter="in_progress">В работе</button>
+        <button class="filter-button" type="button" data-filter="done">Выполненные</button>
+      </nav>
+    </div>
+
+    <div class="layout">
+      <section class="panel">
+        <h2>Новая задача</h2>
+        <form id="create-task-form" method="post" action="/ui/tasks" novalidate>
+          <label>
+            Название
+            <input name="name" type="text" required autocomplete="off">
+            <span class="field-error">Введите название задачи</span>
+          </label>
+          <label>
+            Описание
+            <textarea name="description"></textarea>
+          </label>
+          <label>
+            Срок
+            <input name="due_to" type="datetime-local">
+          </label>
+          <button type="submit">Создать задачу</button>
+        </form>
+      </section>
+
+      <section class="panel">
+        <h2>Мои задачи</h2>
+        {{ if .tasks }}
+          <div class="task-list">
+            {{ range .tasks }}
+              <article class="task-item" data-task-status="{{ .Status }}">
+                <div class="task-view">
+                  <div class="task-head">
+                    <div>
+                      <h3 class="task-title">{{ .Name }}</h3>
+                    </div>
+                    <span class="badge {{ .StatusClass }}">{{ .StatusLabel }}</span>
+                  </div>
+
+                  {{ if .Description }}
+                    <p class="task-description">{{ .Description }}</p>
+                  {{ end }}
+
+                  <div class="task-meta">
+                    <span class="{{ .DueToClass }}">Срок: {{ .DueTo }}</span>
+                    <span>Обновлена: {{ .UpdatedAt }}</span>
+                  </div>
+
+                  <div class="task-actions">
+                    <button class="ghost compact" type="button" data-edit-task>Изменить</button>
+                    <form method="post" action="/ui/tasks/delete" onsubmit="return confirm('Удалить задачу?');">
+                      <input type="hidden" name="task_id" value="{{ .ID }}">
+                      <button class="danger compact" type="submit">Удалить</button>
+                    </form>
+                  </div>
+                </div>
+
+                <form class="edit-grid" method="post" action="/ui/tasks/update">
+                  <input type="hidden" name="task_id" value="{{ .ID }}">
+                  <label>
+                    Название
+                    <input name="name" type="text" value="{{ .Name }}" required>
+                  </label>
+                  <label>
+                    Статус
+                    <select name="status">
+                      <option value="todo" {{ if eq .Status "todo" }}selected{{ end }}>Новая</option>
+                      <option value="in_progress" {{ if eq .Status "in_progress" }}selected{{ end }}>В работе</option>
+                      <option value="done" {{ if eq .Status "done" }}selected{{ end }}>Готова к тестированию</option>
+                      <option value="closed" {{ if eq .Status "closed" }}selected{{ end }}>Закрыта</option>
+                      <option value="archieved" {{ if eq .Status "archieved" }}selected{{ end }}>В архиве</option>
+                    </select>
+                  </label>
+                  <label>
+                    Срок
+                    <input name="due_to" type="datetime-local" value="{{ .DueToInput }}">
+                  </label>
+                  <div class="edit-actions">
+                    <button type="submit">Сохранить</button>
+                    <button class="ghost" type="button" data-cancel-edit>Отмена</button>
+                  </div>
+                  <label>
+                    Описание
+                    <textarea name="description">{{ .Description }}</textarea>
+                  </label>
+                </form>
+              </article>
+            {{ end }}
+          </div>
+          <div class="empty" id="filtered-empty" hidden>По выбранному фильтру задач нет.</div>
+        {{ else }}
+          <div class="empty">Пока нет задач. Создайте первую задачу слева.</div>
+        {{ end }}
+      </section>
+    </div>
+  </main>
+  <script>
+    document.querySelectorAll("[data-edit-task]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const card = button.closest(".task-item");
+        if (card) {
+          card.classList.add("is-editing");
+        }
+      });
+    });
+
+    document.querySelectorAll("[data-cancel-edit]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const card = button.closest(".task-item");
+        if (card) {
+          card.classList.remove("is-editing");
+        }
+      });
+    });
+
+    const filterButtons = document.querySelectorAll("[data-filter]");
+    const taskCards = document.querySelectorAll("[data-task-status]");
+    const filteredEmpty = document.querySelector("#filtered-empty");
+
+    const applyFilter = (filter) => {
+      let visibleCount = 0;
+
+      taskCards.forEach((card) => {
+        const visible = filter === "all" || card.dataset.taskStatus === filter;
+        card.hidden = !visible;
+        if (visible) {
+          visibleCount += 1;
+        }
+      });
+
+      filterButtons.forEach((button) => {
+        button.classList.toggle("active", button.dataset.filter === filter);
+      });
+
+      if (filteredEmpty) {
+        filteredEmpty.hidden = visibleCount !== 0;
+      }
+    };
+
+    filterButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        applyFilter(button.dataset.filter || "all");
+      });
+    });
+
+    const createForm = document.querySelector("#create-task-form");
+    if (createForm) {
+      const nameInput = createForm.querySelector('input[name="name"]');
+      const nameLabel = nameInput ? nameInput.closest("label") : null;
+
+      const validateName = () => {
+        const invalid = !nameInput || nameInput.value.trim() === "";
+        if (nameLabel) {
+          nameLabel.classList.toggle("has-error", invalid);
+        }
+        if (nameInput) {
+          nameInput.setAttribute("aria-invalid", invalid ? "true" : "false");
+        }
+        return !invalid;
+      };
+
+      createForm.addEventListener("submit", (event) => {
+        if (!validateName()) {
+          event.preventDefault();
+          nameInput.focus();
+        }
+      });
+
+      if (nameInput) {
+        nameInput.addEventListener("input", () => {
+          if (nameLabel && nameLabel.classList.contains("has-error")) {
+            validateName();
+          }
+        });
+      }
+    }
+  </script>
+</body>
+</html>
+{{ end }}

@@ -8,6 +8,12 @@ import (
 )
 
 func RegisterRoutes(r *gin.Engine, h TaskHandler, tokens *infraauth.JWTService, legacyHeadersEnabled bool) {
+	ui := r.Group("/ui/tasks", middleware.UIActorMiddleware(tokens))
+	ui.GET("", h.ShowTasks)
+	ui.POST("", h.CreateFromUI)
+	ui.POST("/update", h.UpdateFromUI)
+	ui.POST("/delete", h.DeleteFromUI)
+
 	task := r.Group("/task", middleware.ActorMiddleware(tokens, legacyHeadersEnabled))
 
 	task.POST("/create", h.Create)
