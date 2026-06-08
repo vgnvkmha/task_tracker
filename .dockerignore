@@ -1,0 +1,17 @@
+.git
+.gitignore
+.idea
+.vscode
+
+.env
+.env.*
+
+Dockerfile
+README.md
+
+tmp
+coverage.out
+*.test
+*.log
+
+.DS_Store

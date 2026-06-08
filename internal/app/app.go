@@ -77,5 +77,5 @@ func Run() error {
 	team_handler.RegisterRoutes(router, teamHandler, jwtService, authCfg.LegacyHeadersEnabled)
 	task_handler.RegisterRoutes(router, taskHandler, jwtService, authCfg.LegacyHeadersEnabled)
 	board_handler.RegisterRoutes(router, boardHandler, jwtService, authCfg.LegacyHeadersEnabled)
-	return router.RunTLS(":8080", "cert.pem", "key.pem")
+	return router.Run(":8080")
 }
