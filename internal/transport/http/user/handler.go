@@ -552,7 +552,6 @@ func (h *handler) ListActive(c *gin.Context) {
 }
 
 func (h *handler) List(c *gin.Context) {
-	var response []Response
 	ctx := c.Request.Context()
 	users, err := h.service.List(ctx)
 	if err != nil {
@@ -562,7 +561,15 @@ func (h *handler) List(c *gin.Context) {
 		})
 		return
 	}
-	response = FromDomainReponses(users)
+	response := make([]Response, 0, len(users))
+	for _, user := range users {
+		profile, err := h.service.GetProfileByID(ctx, user.ID)
+		if err != nil {
+			response = append(response, FromDomain(user))
+			continue
+		}
+		response = append(response, FromProfile(profile))
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"users": response,

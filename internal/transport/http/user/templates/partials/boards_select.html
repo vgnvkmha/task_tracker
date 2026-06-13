@@ -1,0 +1,13 @@
+{{ define "boards_select" }}
+<div id="boards-select-wrapper">
+  <select name="board_id" id="board-select">
+    {{ if .Boards }}
+      {{ range .Boards }}
+        <option value="{{ .ID }}" data-board-name="{{ .Name }}" data-team-id="{{ .TeamID }}">{{ .Name }}</option>
+      {{ end }}
+    {{ else }}
+      <option value="" disabled selected>Доски не найдены</option>
+    {{ end }}
+  </select>
+</div>
+{{ end }}

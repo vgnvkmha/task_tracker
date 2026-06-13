@@ -8,6 +8,9 @@ import (
 )
 
 func RegisterRoutes(r *gin.Engine, h BoardHandler, tokens *infraauth.JWTService, legacyHeadersEnabled bool) {
+	boardsUI := r.Group("/boards", middleware.UIActorMiddleware(tokens))
+	boardsUI.GET("/search", h.Search)
+
 	board := r.Group("/board", middleware.ActorMiddleware(tokens, legacyHeadersEnabled))
 
 	board.POST("/create", h.Create)

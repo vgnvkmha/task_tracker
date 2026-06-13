@@ -17,6 +17,7 @@ type BoardHandler interface {
 	GetByID(c *gin.Context)
 	List(c *gin.Context)
 	ListByTeamID(c *gin.Context)
+	Search(c *gin.Context)
 	Update(c *gin.Context)
 	Delete(c *gin.Context)
 }
@@ -120,6 +121,49 @@ func (h *handler) ListByTeamID(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"boards": NewResponses(boards)})
 }
 
+func (h *handler) Search(c *gin.Context) {
+	actor, ok := actorFromContext(c)
+	if !ok {
+		return
+	}
+
+	input, ok := newSearchBoardsInput(c)
+	if !ok {
+		return
+	}
+
+	boards, err := h.service.Search(c.Request.Context(), actor, input)
+	if err != nil {
+		status, msg := mapError(err)
+		c.JSON(status, gin.H{"error": msg})
+		return
+	}
+
+	c.HTML(http.StatusOK, "boards_select", gin.H{
+		"Boards": NewResponses(boards),
+	})
+}
+
+func newSearchBoardsInput(c *gin.Context) (boardapp.SearchBoardsInput, bool) {
+	input := boardapp.SearchBoardsInput{}
+
+	if query := c.Query("q"); query != "" {
+		input.Query = &query
+	}
+	if teamID, ok := parseOptionalUUIDQuery(c, "team_id"); !ok {
+		return boardapp.SearchBoardsInput{}, false
+	} else {
+		input.TeamID = teamID
+	}
+	if userID, ok := parseOptionalUUIDQuery(c, "user_id"); !ok {
+		return boardapp.SearchBoardsInput{}, false
+	} else {
+		input.UserID = userID
+	}
+
+	return input, true
+}
+
 func (h *handler) Update(c *gin.Context) {
 	actor, ok := actorFromContext(c)
 	if !ok {
@@ -183,4 +227,22 @@ func actorFromContext(c *gin.Context) (auth.Actor, bool) {
 		return auth.Actor{}, false
 	}
 	return actor, true
+}
+
+func parseOptionalUUIDQuery(c *gin.Context, name string) (*uuid.UUID, bool) {
+	raw := c.Query(name)
+	if raw == "" || raw == "all" {
+		return nil, true
+	}
+
+	id, err := uuid.Parse(raw)
+	if err != nil {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "invalid " + name})
+		return nil, false
+	}
+	if id == uuid.Nil {
+		return nil, true
+	}
+
+	return &id, true
 }

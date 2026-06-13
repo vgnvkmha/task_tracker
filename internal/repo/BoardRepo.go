@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	"task_tracker/internal/common_errors"
@@ -21,8 +23,15 @@ type BoardRepo interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*Board, error)
 	List(ctx context.Context) ([]*Board, error)
 	ListByTeamID(ctx context.Context, teamID uuid.UUID) ([]*Board, error)
+	Search(ctx context.Context, filters BoardSearchFilters) ([]*Board, error)
 	Update(ctx context.Context, id uuid.UUID, board Board) (*Board, error)
 	Delete(ctx context.Context, id uuid.UUID) error
+}
+
+type BoardSearchFilters struct {
+	Query  *string
+	TeamID *uuid.UUID
+	UserID *uuid.UUID
 }
 
 type boardRepo struct {
@@ -104,6 +113,50 @@ func (r *boardRepo) ListByTeamID(ctx context.Context, teamID uuid.UUID) ([]*Boar
 	`
 
 	rows, err := queryBoardRows(ctx, r.db, query, teamID)
+	if err != nil {
+		return nil, dberrors.Map(err)
+	}
+	defer rows.Close()
+
+	return scanBoards(rows)
+}
+
+func (r *boardRepo) Search(ctx context.Context, filters BoardSearchFilters) ([]*Board, error) {
+	var (
+		conditions []string
+		args       []any
+	)
+
+	if filters.Query != nil && strings.TrimSpace(*filters.Query) != "" {
+		args = append(args, "%"+strings.TrimSpace(*filters.Query)+"%")
+		conditions = append(conditions, fmt.Sprintf("b.name ILIKE $%d", len(args)))
+	}
+	if filters.TeamID != nil {
+		args = append(args, *filters.TeamID)
+		conditions = append(conditions, fmt.Sprintf("b.team_id = $%d", len(args)))
+	}
+	if filters.UserID != nil {
+		args = append(args, *filters.UserID)
+		conditions = append(conditions, fmt.Sprintf(`
+			EXISTS (
+				SELECT 1
+				FROM tasks t
+				WHERE t.board_id = b.id
+				  AND (t.reporter_id = $%d OR t.assignee_id = $%d)
+			)
+		`, len(args), len(args)))
+	}
+
+	query := `
+		SELECT DISTINCT b.id, b.team_id, b.is_public, b.name, b.status, b.created_at
+		FROM boards b
+	`
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
+	}
+	query += " ORDER BY b.created_at DESC"
+
+	rows, err := queryBoardRows(ctx, r.db, query, args...)
 	if err != nil {
 		return nil, dberrors.Map(err)
 	}

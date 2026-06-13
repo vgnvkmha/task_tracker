@@ -21,6 +21,7 @@ type BoardService interface {
 	GetByID(ctx context.Context, actor auth.Actor, id uuid.UUID) (*Board, error)
 	List(ctx context.Context, actor auth.Actor) ([]*Board, error)
 	ListByTeamID(ctx context.Context, actor auth.Actor, teamID uuid.UUID) ([]*Board, error)
+	Search(ctx context.Context, actor auth.Actor, input SearchBoardsInput) ([]*Board, error)
 	Update(ctx context.Context, actor auth.Actor, id uuid.UUID, input UpdateBoardInput) (*Board, error)
 	Delete(ctx context.Context, actor auth.Actor, id uuid.UUID) error
 }
@@ -151,6 +152,34 @@ func (s *service) ListByTeamID(ctx context.Context, actor auth.Actor, teamID uui
 			"actor_id", actor.ID,
 			"actor_role", actor.Role,
 			"team_id", teamID,
+		)
+	}
+
+	return result, nil
+}
+
+func (s *service) Search(ctx context.Context, actor auth.Actor, input SearchBoardsInput) ([]*Board, error) {
+	var result []*Board
+
+	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
+		boards, err := s.boardRepo.Search(ctx, repo.BoardSearchFilters{
+			Query:  input.Query,
+			TeamID: input.TeamID,
+			UserID: input.UserID,
+		})
+		if err != nil {
+			return mapRepoError(err, ErrBoardNotFound)
+		}
+
+		result = boards
+		return nil
+	})
+
+	if err != nil {
+		return nil, logError(err, s.logger,
+			"operation", "search",
+			"actor_id", actor.ID,
+			"actor_role", actor.Role,
 		)
 	}
 

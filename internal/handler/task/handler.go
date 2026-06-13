@@ -270,11 +270,12 @@ func (h *handler) ShowTasks(ctx *gin.Context) {
 	}
 
 	ctx.HTML(http.StatusOK, "task_page", gin.H{
-		"title":   "Задачи",
-		"tasks":   []taskView{},
-		"team_id": actorTeamID(actor),
-		"message": taskMessage(ctx.Query("message")),
-		"error":   taskError(ctx.Query("error")),
+		"title":    "Задачи",
+		"tasks":    []taskView{},
+		"actor_id": actor.ID.String(),
+		"team_id":  actorTeamID(actor),
+		"message":  taskMessage(ctx.Query("message")),
+		"error":    taskError(ctx.Query("error")),
 	})
 }
 

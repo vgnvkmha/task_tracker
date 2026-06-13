@@ -5,6 +5,7 @@ import (
 )
 
 type Response struct {
+	ID       string  `json:"id"`
 	Name     string  `json:"name"`
 	Timezone *string `json:"timezone"`
 	LeaderID *string `json:"leader_id"`
@@ -27,6 +28,7 @@ func NewResponse(team *team.Team) *Response {
 	}
 
 	return &Response{
+		ID:       team.ID.String(),
 		Name:     team.Name,
 		Timezone: timezone,
 		LeaderID: leaderID,
