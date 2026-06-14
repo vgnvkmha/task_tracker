@@ -1,0 +1,97 @@
+{{ define "task_modal_edit" }}
+<div class="task-modal-backdrop" data-close-task-modal>
+  <article class="task-modal" role="dialog" aria-modal="true" aria-labelledby="task-modal-title">
+    <form class="task-modal-form"
+          hx-patch="/tasks/{{ .ID }}"
+          hx-target="#task-modal-root"
+          hx-swap="innerHTML">
+      <div class="task-modal-main">
+        <div class="task-modal-header">
+          <div class="task-context">
+            <span>Доска:</span>
+            <strong data-board-ref="{{ .BoardID }}">{{ if .BoardID }}Загрузка...{{ else }}Не указана{{ end }}</strong>
+          </div>
+          <button class="modal-close" type="button" aria-label="Закрыть" data-close-task-modal>×</button>
+        </div>
+
+        <h2 id="task-modal-title">Редактировать задачу</h2>
+
+        {{ if .Error }}
+          <div class="message error">{{ .Error }}</div>
+        {{ end }}
+
+        <label class="modal-field">
+          Название
+          <input name="name" type="text" value="{{ .Name }}" required autocomplete="off">
+          <span class="field-error">Введите название задачи</span>
+        </label>
+
+        <label class="modal-field">
+          Описание
+          <textarea class="modal-description-textarea" name="description">{{ .Description }}</textarea>
+        </label>
+
+        <input name="board_id" type="hidden" value="{{ .BoardID }}">
+
+        <div class="task-modal-edit-actions">
+          <button type="submit">Сохранить</button>
+          <button class="ghost"
+                  type="button"
+                  hx-get="/tasks/{{ .ID }}"
+                  hx-target="#task-modal-root"
+                  hx-swap="innerHTML">Отмена</button>
+        </div>
+      </div>
+
+      <aside class="task-modal-details">
+        <h3>Детали</h3>
+
+        <label class="modal-field compact-field">
+          Статус
+          <select name="status">
+            <option value="todo" {{ if eq .Status "todo" }}selected{{ end }}>Новая</option>
+            <option value="in_progress" {{ if eq .Status "in_progress" }}selected{{ end }}>В работе</option>
+            <option value="done" {{ if eq .Status "done" }}selected{{ end }}>Готова к тестированию</option>
+            <option value="closed" {{ if eq .Status "closed" }}selected{{ end }}>Закрыта</option>
+            <option value="archieved" {{ if eq .Status "archieved" }}selected{{ end }}>В архиве</option>
+          </select>
+        </label>
+
+        <label class="modal-field compact-field">
+          Исполнитель
+          <select name="assignee_id"
+                  data-modal-user-select="assignee"
+                  data-selected-user="{{ .AssigneeID }}"
+                  data-empty-option="Без исполнителя">
+            <option value="">Без исполнителя</option>
+          </select>
+        </label>
+
+        <label class="modal-field compact-field">
+          Репортер
+          <select name="reporter_id"
+                  data-modal-user-select="reporter"
+                  data-selected-user="{{ .ReporterID }}">
+            <option value="{{ .ReporterID }}">Загрузка...</option>
+          </select>
+        </label>
+
+        <label class="modal-field compact-field">
+          Срок
+          <input name="due_to" type="datetime-local" value="{{ .DueToInput }}">
+        </label>
+
+        <div class="readonly-detail">
+          <span>Доска</span>
+          <strong data-board-ref="{{ .BoardID }}">{{ if .BoardID }}Загрузка...{{ else }}Не указана{{ end }}</strong>
+        </div>
+
+        <div class="readonly-detail">
+          <span>Команда</span>
+          <strong data-team-for-board="{{ .BoardID }}">{{ if .BoardID }}Загрузка...{{ else }}—{{ end }}</strong>
+        </div>
+      </aside>
+    </form>
+  </article>
+</div>
+{{ end }}

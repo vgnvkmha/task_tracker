@@ -14,6 +14,11 @@ func RegisterRoutes(r *gin.Engine, h TaskHandler, tokens *infraauth.JWTService, 
 	ui.POST("/update", h.UpdateFromUI)
 	ui.POST("/delete", h.DeleteFromUI)
 
+	taskModal := r.Group("/tasks", middleware.UIActorMiddleware(tokens))
+	taskModal.GET("/:task_id", h.ShowTaskModal)
+	taskModal.GET("/:task_id/edit", h.ShowTaskEditModal)
+	taskModal.PATCH("/:task_id", h.UpdateTaskModal)
+
 	task := r.Group("/task", middleware.ActorMiddleware(tokens, legacyHeadersEnabled))
 
 	task.POST("/create", h.Create)

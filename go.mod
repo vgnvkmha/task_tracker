@@ -2,9 +2,16 @@ module task_tracker
 
 go 1.25.6
 
-require go.uber.org/zap v1.27.1
+require (
+	github.com/microcosm-cc/bluemonday v1.0.27
+	github.com/yuin/goldmark v1.8.2
+	go.uber.org/zap v1.27.1
+	golang.org/x/net v0.51.0
+)
 
 require (
+	github.com/aymerick/douceur v0.2.0 // indirect
+	github.com/gorilla/css v1.0.1 // indirect
 	github.com/jackc/chunkreader/v2 v2.0.1 // indirect
 	github.com/jackc/pgio v1.0.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
@@ -46,7 +53,6 @@ require (
 	go.uber.org/multierr v1.10.0 // indirect
 	golang.org/x/arch v0.22.0 // indirect
 	golang.org/x/crypto v0.48.0
-	golang.org/x/net v0.51.0 // indirect
 	golang.org/x/sys v0.41.0 // indirect
 	golang.org/x/text v0.34.0 // indirect
 	google.golang.org/protobuf v1.36.10 // indirect

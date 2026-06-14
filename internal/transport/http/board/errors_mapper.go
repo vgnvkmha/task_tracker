@@ -14,8 +14,12 @@ func mapError(err error) (int, string) {
 		return http.StatusNotFound, "board not found"
 	case errors.Is(err, boardapp.ErrBoardAlreadyExists):
 		return http.StatusConflict, "board already exists"
+	case errors.Is(err, boardapp.ErrListBoardsFailed):
+		return http.StatusInternalServerError, "failed to list boards"
 	case errors.Is(err, boardapp.ErrPermissionDenied):
 		return http.StatusForbidden, "permission denied"
+	case errors.Is(err, boardapp.ErrBoardTeamMismatch):
+		return http.StatusForbidden, "Можно удалять только доски своей команды"
 	case errors.Is(err, boardapp.ErrInvalidBoardID),
 		errors.Is(err, boardapp.ErrInvalidInput),
 		errors.Is(err, boardapp.ErrInvalidStatus),

@@ -1,0 +1,96 @@
+{{ define "task_modal" }}
+<div class="task-modal-backdrop" data-close-task-modal>
+  <article class="task-modal" role="dialog" aria-modal="true" aria-labelledby="task-modal-title">
+    {{ if .Error }}
+      <div class="task-modal-main">
+        <div class="task-modal-header">
+          <div class="task-context"><strong>Ошибка</strong></div>
+          <button class="ghost compact" type="button" data-close-task-modal>Закрыть</button>
+        </div>
+        <div class="message error">{{ .Error }}</div>
+      </div>
+    {{ else }}
+      <div class="task-modal-main">
+        <div class="task-modal-header">
+          <div class="task-context">
+            <span>Доска:</span>
+            <strong data-board-ref="{{ .BoardID }}">{{ if .BoardID }}Загрузка...{{ else }}Не указана{{ end }}</strong>
+          </div>
+          <button class="modal-close" type="button" aria-label="Закрыть" data-close-task-modal>×</button>
+        </div>
+
+        <h2 id="task-modal-title">{{ .Name }}</h2>
+
+        <div class="task-actions">
+          <button class="ghost compact"
+                  type="button"
+                  hx-get="/tasks/{{ .ID }}/edit"
+                  hx-target="#task-modal-root"
+                  hx-swap="innerHTML">Редактировать</button>
+          <button class="danger compact" type="button" data-modal-delete-task data-task-id="{{ .ID }}">Удалить</button>
+        </div>
+
+        <section class="task-section">
+          <h3 class="task-section-title">Описание</h3>
+          {{ if .HasDescription }}
+            <div class="markdown-body task-description-content">{{ .DescriptionHTML }}</div>
+          {{ else }}
+            <div class="task-empty-text">Описание не добавлено</div>
+          {{ end }}
+        </section>
+
+        <section class="task-section task-comments">
+          <h3 class="task-section-title">Комментарии</h3>
+          <div class="empty-comments">Комментарии пока не реализованы.</div>
+        </section>
+      </div>
+
+      <aside class="task-modal-details">
+        <h3>Детали</h3>
+        <dl>
+          <div>
+            <dt>Статус</dt>
+            <dd><span class="badge {{ .StatusClass }}">{{ .StatusLabel }}</span></dd>
+          </div>
+          <div>
+            <dt>Исполнитель</dt>
+            <dd data-user-ref="{{ .AssigneeID }}" data-empty-text="Не назначен">{{ if .AssigneeID }}Загрузка...{{ else }}Не назначен{{ end }}</dd>
+          </div>
+          <div>
+            <dt>Репортер</dt>
+            <dd data-user-ref="{{ .ReporterID }}" data-empty-text="—">{{ if .ReporterID }}Загрузка...{{ else }}—{{ end }}</dd>
+          </div>
+          <div>
+            <dt>Срок</dt>
+            <dd>{{ .DueTo }}</dd>
+          </div>
+          <div>
+            <dt>Напоминание</dt>
+            <dd>Нет</dd>
+          </div>
+          <div>
+            <dt>Создана</dt>
+            <dd>{{ .CreatedAt }}</dd>
+          </div>
+          <div>
+            <dt>Обновлена</dt>
+            <dd>{{ .UpdatedAt }}</dd>
+          </div>
+          <div>
+            <dt>Доска</dt>
+            <dd data-board-ref="{{ .BoardID }}">{{ if .BoardID }}Загрузка...{{ else }}Не указана{{ end }}</dd>
+          </div>
+          <div>
+            <dt>Команда</dt>
+            <dd data-team-for-board="{{ .BoardID }}">{{ if .BoardID }}Загрузка...{{ else }}—{{ end }}</dd>
+          </div>
+        </dl>
+        <details class="technical-details">
+          <summary>Техническая информация</summary>
+          <div>ID задачи: {{ .ID }}</div>
+        </details>
+      </aside>
+    {{ end }}
+  </article>
+</div>
+{{ end }}

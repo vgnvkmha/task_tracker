@@ -72,7 +72,7 @@ func (r *boardRepo) Create(ctx context.Context, board Board) (*Board, error) {
 
 func (r *boardRepo) GetByID(ctx context.Context, id uuid.UUID) (*Board, error) {
 	const query = `
-		SELECT id, team_id, is_public, name, status, created_at
+		SELECT id, team_id, is_public, name, COALESCE(status, 'active'), created_at
 		FROM boards
 		WHERE id = $1
 	`
@@ -90,7 +90,7 @@ func (r *boardRepo) GetByID(ctx context.Context, id uuid.UUID) (*Board, error) {
 
 func (r *boardRepo) List(ctx context.Context) ([]*Board, error) {
 	const query = `
-		SELECT id, team_id, is_public, name, status, created_at
+		SELECT id, team_id, is_public, name, COALESCE(status, 'active'), created_at
 		FROM boards
 		ORDER BY created_at DESC
 	`
@@ -106,7 +106,7 @@ func (r *boardRepo) List(ctx context.Context) ([]*Board, error) {
 
 func (r *boardRepo) ListByTeamID(ctx context.Context, teamID uuid.UUID) ([]*Board, error) {
 	const query = `
-		SELECT id, team_id, is_public, name, status, created_at
+		SELECT id, team_id, is_public, name, COALESCE(status, 'active'), created_at
 		FROM boards
 		WHERE team_id = $1
 		ORDER BY created_at DESC
@@ -148,7 +148,7 @@ func (r *boardRepo) Search(ctx context.Context, filters BoardSearchFilters) ([]*
 	}
 
 	query := `
-		SELECT DISTINCT b.id, b.team_id, b.is_public, b.name, b.status, b.created_at
+		SELECT DISTINCT b.id, b.team_id, b.is_public, b.name, COALESCE(b.status, 'active'), b.created_at
 		FROM boards b
 	`
 	if len(conditions) > 0 {

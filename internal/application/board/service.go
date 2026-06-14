@@ -115,7 +115,7 @@ func (s *service) List(ctx context.Context, actor auth.Actor) ([]*Board, error) 
 	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
 		boards, err := s.boardRepo.List(ctx)
 		if err != nil {
-			return mapRepoError(err, ErrBoardNotFound)
+			return mapRepoError(err, ErrListBoardsFailed)
 		}
 
 		result = boards
@@ -139,7 +139,7 @@ func (s *service) ListByTeamID(ctx context.Context, actor auth.Actor, teamID uui
 	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
 		boards, err := s.boardRepo.ListByTeamID(ctx, teamID)
 		if err != nil {
-			return mapRepoError(err, ErrBoardNotFound)
+			return mapRepoError(err, ErrListBoardsFailed)
 		}
 
 		result = boards
@@ -168,7 +168,7 @@ func (s *service) Search(ctx context.Context, actor auth.Actor, input SearchBoar
 			UserID: input.UserID,
 		})
 		if err != nil {
-			return mapRepoError(err, ErrBoardNotFound)
+			return mapRepoError(err, ErrListBoardsFailed)
 		}
 
 		result = boards
@@ -248,6 +248,9 @@ func (s *service) Delete(ctx context.Context, actor auth.Actor, id uuid.UUID) er
 		}
 		if existing == nil {
 			return ErrBoardNotFound
+		}
+		if actor.TeamID == nil || *actor.TeamID != existing.TeamId {
+			return ErrBoardTeamMismatch
 		}
 
 		if err := s.boardRepo.Delete(ctx, id); err != nil {

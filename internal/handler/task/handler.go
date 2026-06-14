@@ -1,6 +1,7 @@
 package task_handler
 
 import (
+	"html/template"
 	"net/http"
 	"net/url"
 	"sort"
@@ -10,6 +11,7 @@ import (
 	"task_tracker/internal/domain/auth"
 	domaintask "task_tracker/internal/domain/task"
 	dto "task_tracker/internal/handler/task/dto"
+	"task_tracker/internal/render"
 	"task_tracker/internal/transport/http/middleware"
 
 	"github.com/gin-gonic/gin"
@@ -18,6 +20,9 @@ import (
 
 type TaskHandler interface {
 	ShowTasks(ctx *gin.Context)
+	ShowTaskModal(ctx *gin.Context)
+	ShowTaskEditModal(ctx *gin.Context)
+	UpdateTaskModal(ctx *gin.Context)
 	CreateFromUI(ctx *gin.Context)
 	UpdateFromUI(ctx *gin.Context)
 	DeleteFromUI(ctx *gin.Context)
@@ -279,6 +284,100 @@ func (h *handler) ShowTasks(ctx *gin.Context) {
 	})
 }
 
+func (h *handler) ShowTaskModal(ctx *gin.Context) {
+	actor, ok := middleware.GetActor(ctx)
+	if !ok {
+		ctx.HTML(http.StatusUnauthorized, "task_modal", gin.H{
+			"Error": "Нужно войти, чтобы открыть задачу.",
+		})
+		return
+	}
+
+	taskID, err := uuid.Parse(ctx.Param("task_id"))
+	if err != nil {
+		ctx.HTML(http.StatusUnprocessableEntity, "task_modal", gin.H{
+			"Error": "Некорректный идентификатор задачи.",
+		})
+		return
+	}
+
+	task, err := h.service.GetByID(ctx.Request.Context(), actor, taskID)
+	if err != nil {
+		_, msg := mapError(err)
+		ctx.HTML(http.StatusOK, "task_modal", gin.H{
+			"Error": msg,
+		})
+		return
+	}
+
+	ctx.HTML(http.StatusOK, "task_modal", taskModalViewFromTask(task))
+}
+
+func (h *handler) ShowTaskEditModal(ctx *gin.Context) {
+	actor, ok := middleware.GetActor(ctx)
+	if !ok {
+		ctx.HTML(http.StatusUnauthorized, "task_modal_edit", taskEditModalView{
+			Error: "Нужно войти, чтобы редактировать задачу.",
+		})
+		return
+	}
+
+	taskID, err := uuid.Parse(ctx.Param("task_id"))
+	if err != nil {
+		ctx.HTML(http.StatusOK, "task_modal_edit", taskEditModalView{
+			Error: "Некорректный идентификатор задачи.",
+		})
+		return
+	}
+
+	task, err := h.service.GetByID(ctx.Request.Context(), actor, taskID)
+	if err != nil {
+		_, msg := mapError(err)
+		ctx.HTML(http.StatusOK, "task_modal_edit", taskEditModalView{
+			Error: msg,
+		})
+		return
+	}
+
+	ctx.HTML(http.StatusOK, "task_modal_edit", taskEditModalViewFromTask(task, ""))
+}
+
+func (h *handler) UpdateTaskModal(ctx *gin.Context) {
+	actor, ok := middleware.GetActor(ctx)
+	if !ok {
+		ctx.HTML(http.StatusUnauthorized, "task_modal_edit", taskEditModalView{
+			Error: "Нужно войти, чтобы сохранить задачу.",
+		})
+		return
+	}
+
+	taskID, err := uuid.Parse(ctx.Param("task_id"))
+	if err != nil {
+		ctx.HTML(http.StatusOK, "task_modal_edit", taskEditModalView{
+			Error: "Некорректный идентификатор задачи.",
+		})
+		return
+	}
+
+	input, editView, err := newModalUpdateTaskInput(ctx, taskID)
+	if err != nil {
+		editView.Error = "Проверьте данные задачи."
+		ctx.HTML(http.StatusOK, "task_modal_edit", editView)
+		return
+	}
+
+	task, err := h.service.Update(ctx.Request.Context(), actor, taskID, input)
+	if err != nil {
+		_, msg := mapError(err)
+		editView.Error = msg
+		ctx.HTML(http.StatusOK, "task_modal_edit", editView)
+		return
+	}
+
+	ctx.Header("HX-Trigger", "taskUpdated")
+	ctx.HTML(http.StatusOK, "task_modal", taskModalViewFromTask(task))
+}
+
 func (h *handler) CreateFromUI(ctx *gin.Context) {
 	actor, ok := middleware.GetActor(ctx)
 	if !ok {
@@ -382,6 +481,62 @@ func newUpdateTaskFormInput(ctx *gin.Context) (uuid.UUID, taskApplication.Update
 	return taskID, input, nil
 }
 
+func newModalUpdateTaskInput(ctx *gin.Context, taskID uuid.UUID) (taskApplication.UpdateTaskInput, taskEditModalView, error) {
+	name := ctx.PostForm("name")
+	description := ctx.PostForm("description")
+	status := domaintask.TaskStatus(ctx.PostForm("status"))
+	view := taskEditModalView{
+		ID:          taskID.String(),
+		Name:        name,
+		Description: description,
+		Status:      string(status),
+		DueToInput:  ctx.PostForm("due_to"),
+		ReporterID:  ctx.PostForm("reporter_id"),
+		AssigneeID:  ctx.PostForm("assignee_id"),
+		BoardID:     ctx.PostForm("board_id"),
+	}
+
+	input := taskApplication.UpdateTaskInput{
+		Name:        &name,
+		Description: &description,
+		Status:      &status,
+	}
+
+	if rawDueTo := ctx.PostForm("due_to"); rawDueTo != "" {
+		dueTo, err := parseOptionalDateTime(rawDueTo)
+		if err != nil {
+			return taskApplication.UpdateTaskInput{}, view, err
+		}
+		input.DueTo = &dueTo
+	} else {
+		dueTo := time.Time{}
+		input.DueTo = &dueTo
+	}
+	if rawReporterID := ctx.PostForm("reporter_id"); rawReporterID != "" {
+		reporterID, err := uuid.Parse(rawReporterID)
+		if err != nil {
+			return taskApplication.UpdateTaskInput{}, view, err
+		}
+		input.ReporterID = &reporterID
+	}
+	if rawAssigneeID := ctx.PostForm("assignee_id"); rawAssigneeID != "" {
+		assigneeID, err := uuid.Parse(rawAssigneeID)
+		if err != nil {
+			return taskApplication.UpdateTaskInput{}, view, err
+		}
+		input.AssigneeID = &assigneeID
+	}
+	if rawBoardID := ctx.PostForm("board_id"); rawBoardID != "" {
+		boardID, err := uuid.Parse(rawBoardID)
+		if err != nil {
+			return taskApplication.UpdateTaskInput{}, view, err
+		}
+		input.BoardID = &boardID
+	}
+
+	return input, view, nil
+}
+
 func parseOptionalDateTime(value string) (time.Time, error) {
 	if value == "" {
 		return time.Time{}, nil
@@ -449,6 +604,86 @@ type taskView struct {
 	DueToClass  string
 	CreatedAt   string
 	UpdatedAt   string
+}
+
+type taskModalView struct {
+	Error           string
+	ID              string
+	Name            string
+	DescriptionHTML template.HTML
+	HasDescription  bool
+	Status          string
+	StatusLabel     string
+	StatusClass     string
+	DueTo           string
+	CreatedAt       string
+	UpdatedAt       string
+	ReporterID      string
+	AssigneeID      string
+	BoardID         string
+	SprintID        string
+}
+
+type taskEditModalView struct {
+	Error       string
+	ID          string
+	Name        string
+	Description string
+	Status      string
+	DueToInput  string
+	ReporterID  string
+	AssigneeID  string
+	BoardID     string
+}
+
+func taskModalViewFromTask(task *taskApplication.Task) taskModalView {
+	view := taskModalView{
+		ID:              task.Id.String(),
+		Name:            task.Name,
+		HasDescription:  task.Description != "",
+		DescriptionHTML: render.RenderMarkdown(task.Description),
+		Status:          string(task.Status),
+		StatusLabel:     taskStatusLabel(task.Status),
+		StatusClass:     taskStatusClass(task.Status, isTaskOverdue(task)),
+		DueTo:           "Без срока",
+		CreatedAt:       task.CreatedAt.Format("02.01.2006, 15:04"),
+		UpdatedAt:       task.UpdatedAt.Format("02.01.2006, 15:04"),
+		ReporterID:      task.ReporterId.String(),
+	}
+	if !task.DueTo.IsZero() {
+		view.DueTo = task.DueTo.Format("02.01.2006, 15:04")
+	}
+	if task.AssigneeId != nil {
+		view.AssigneeID = task.AssigneeId.String()
+	}
+	if task.BoardId != nil {
+		view.BoardID = task.BoardId.String()
+	}
+	if task.SprintId != nil {
+		view.SprintID = task.SprintId.String()
+	}
+	return view
+}
+
+func taskEditModalViewFromTask(task *taskApplication.Task, errorMessage string) taskEditModalView {
+	view := taskEditModalView{
+		Error:       errorMessage,
+		ID:          task.Id.String(),
+		Name:        task.Name,
+		Description: task.Description,
+		Status:      string(task.Status),
+		ReporterID:  task.ReporterId.String(),
+	}
+	if !task.DueTo.IsZero() {
+		view.DueToInput = task.DueTo.Format("2006-01-02T15:04")
+	}
+	if task.AssigneeId != nil {
+		view.AssigneeID = task.AssigneeId.String()
+	}
+	if task.BoardId != nil {
+		view.BoardID = task.BoardId.String()
+	}
+	return view
 }
 
 func newTaskViews(tasks []*taskApplication.Task) []taskView {
