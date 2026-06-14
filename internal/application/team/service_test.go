@@ -161,6 +161,16 @@ func (r *fakeUserRepo) ListActive(ctx context.Context) ([]*userRepo.User, error)
 	return users, nil
 }
 
+func (r *fakeUserRepo) ListActiveProfiles(ctx context.Context) ([]*userRepo.ActiveUserProfile, error) {
+	var profiles []*userRepo.ActiveUserProfile
+	for _, user := range r.users {
+		if user.IsActive {
+			profiles = append(profiles, &userRepo.ActiveUserProfile{User: user})
+		}
+	}
+	return profiles, nil
+}
+
 func (r *fakeUserRepo) List(ctx context.Context) ([]*userRepo.User, error) {
 	var users []*userRepo.User
 	for _, user := range r.users {

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"task_tracker/internal/common_errors"
+	personaldata "task_tracker/internal/domain/personal_data"
 	"task_tracker/internal/domain/user"
 	"task_tracker/internal/infrastracture/db"
 	"task_tracker/internal/repo/dberrors"
@@ -15,6 +16,12 @@ import (
 
 type User = user.User
 
+type ActiveUserProfile struct {
+	User         *User
+	PersonalData personaldata.PersonalData
+	TeamName     string
+}
+
 type UserRepo interface {
 	Create(ctx context.Context, user User) (*User, error)
 
@@ -22,6 +29,7 @@ type UserRepo interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*User, error)
 
 	ListActive(ctx context.Context) ([]*User, error)
+	ListActiveProfiles(ctx context.Context) ([]*ActiveUserProfile, error)
 	List(ctx context.Context) ([]*User, error)
 
 	Update(ctx context.Context, id uuid.UUID, user User) (*User, error)
@@ -66,6 +74,67 @@ func scanUser(scanner userRowScanner) (*User, error) {
 	}
 
 	return &user, nil
+}
+
+func scanActiveUserProfile(scanner userRowScanner) (*ActiveUserProfile, error) {
+	var (
+		u            User
+		teamID       uuid.NullUUID
+		personalID   uuid.NullUUID
+		firstName    sql.NullString
+		lastName     sql.NullString
+		age          sql.NullInt64
+		birthDate    sql.NullTime
+		teamName     string
+		personalData personaldata.PersonalData
+	)
+
+	err := scanner.Scan(
+		&u.ID,
+		&teamID,
+		&u.Email,
+		&u.Password,
+		&u.Role,
+		&u.PersonalDataID,
+		&u.IsActive,
+		&personalID,
+		&firstName,
+		&lastName,
+		&age,
+		&birthDate,
+		&teamName,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if teamID.Valid {
+		u.TeamID = &teamID.UUID
+	}
+	personalData.Id = u.PersonalDataID
+	if personalID.Valid {
+		personalData.Id = personalID.UUID
+	}
+	if firstName.Valid {
+		personalData.FirstName = firstName.String
+	}
+	if lastName.Valid {
+		personalData.LastName = lastName.String
+	}
+	if age.Valid {
+		value := uint8(age.Int64)
+		personalData.Age = &value
+	}
+	if birthDate.Valid {
+		value := birthDate.Time
+		personalData.BirthDate = &value
+	}
+
+	return &ActiveUserProfile{
+		User:         &u,
+		PersonalData: personalData,
+		TeamName:     teamName,
+	}, nil
 }
 
 func (r *userRepo) Create(ctx context.Context, user User) (*User, error) {
@@ -209,6 +278,59 @@ func (r *userRepo) ListActive(ctx context.Context) ([]*User, error) {
 	}
 
 	return users, nil
+}
+
+func (r *userRepo) ListActiveProfiles(ctx context.Context) ([]*ActiveUserProfile, error) {
+	const query = `
+		SELECT
+			u.id,
+			u.team_id,
+			u.email,
+			u.password,
+			u.role,
+			u.personal_data_id,
+			u.is_active,
+			pd.id,
+			pd.first_name,
+			pd.last_name,
+			pd.age,
+			pd.birth_date,
+			COALESCE(t.name, '')
+		FROM users u
+		LEFT JOIN personal_datas pd ON pd.id = u.personal_data_id
+		LEFT JOIN teams t ON t.id = u.team_id
+		WHERE u.is_active = true
+		ORDER BY pd.first_name NULLS LAST, pd.last_name NULLS LAST, u.email
+	`
+
+	var (
+		rows *sql.Rows
+		err  error
+	)
+
+	if tx, ok := db.GetTx(ctx); ok {
+		rows, err = tx.QueryContext(ctx, query)
+	} else {
+		rows, err = r.db.QueryContext(ctx, query)
+	}
+	if err != nil {
+		return nil, dberrors.Map(err)
+	}
+	defer rows.Close()
+
+	profiles := make([]*ActiveUserProfile, 0)
+	for rows.Next() {
+		profile, err := scanActiveUserProfile(rows)
+		if err != nil {
+			return nil, dberrors.Map(err)
+		}
+		profiles = append(profiles, profile)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, dberrors.Map(err)
+	}
+
+	return profiles, nil
 }
 
 func (r *userRepo) List(ctx context.Context) ([]*User, error) {

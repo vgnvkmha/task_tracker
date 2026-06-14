@@ -32,6 +32,7 @@ type UserService interface {
 	GetProfileByID(ctx context.Context, id uuid.UUID) (*Profile, error)
 
 	ListActive(ctx context.Context) ([]*User, error)
+	ListActiveProfiles(ctx context.Context) ([]*Profile, error)
 	List(ctx context.Context) ([]*User, error)
 
 	DeleteByID(ctx context.Context, actor auth.Actor, id uuid.UUID) error
@@ -458,6 +459,36 @@ func (s *service) ListActive(ctx context.Context) ([]*User, error) {
 	if err != nil {
 		logFailure(s.logger, "list active get operation failed", err,
 			"operation", "list_active",
+		)
+		return nil, err
+	}
+	return result, nil
+}
+
+func (s *service) ListActiveProfiles(ctx context.Context) ([]*Profile, error) {
+	var result []*Profile
+	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
+		profiles, err := s.userRepo.ListActiveProfiles(ctx)
+		if err != nil {
+			return mapGetError(err)
+		}
+		result = make([]*Profile, 0, len(profiles))
+		for _, profile := range profiles {
+			if profile == nil {
+				continue
+			}
+			result = append(result, &Profile{
+				User:         profile.User,
+				PersonalData: profile.PersonalData,
+				TeamName:     profile.TeamName,
+			})
+		}
+		return nil
+	})
+
+	if err != nil {
+		logFailure(s.logger, "list active profiles operation failed", err,
+			"operation", "list_active_profiles",
 		)
 		return nil, err
 	}

@@ -73,6 +73,10 @@ func (s *fakeUserService) ListActive(ctx context.Context) ([]*userApplication.Us
 	return nil, nil
 }
 
+func (s *fakeUserService) ListActiveProfiles(ctx context.Context) ([]*userApplication.Profile, error) {
+	return nil, nil
+}
+
 func (s *fakeUserService) List(ctx context.Context) ([]*userApplication.User, error) {
 	return nil, nil
 }

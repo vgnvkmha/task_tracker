@@ -366,7 +366,7 @@ func (h *handler) UpdateTaskModal(ctx *gin.Context) {
 		return
 	}
 
-	task, err := h.service.Update(ctx.Request.Context(), actor, taskID, input)
+	_, err = h.service.Update(ctx.Request.Context(), actor, taskID, input)
 	if err != nil {
 		_, msg := mapError(err)
 		editView.Error = msg
@@ -375,7 +375,7 @@ func (h *handler) UpdateTaskModal(ctx *gin.Context) {
 	}
 
 	ctx.Header("HX-Trigger", "taskUpdated")
-	ctx.HTML(http.StatusOK, "task_modal", taskModalViewFromTask(task))
+	ctx.Data(http.StatusOK, "text/html; charset=utf-8", []byte(""))
 }
 
 func (h *handler) CreateFromUI(ctx *gin.Context) {

@@ -1108,8 +1108,13 @@
       activeFilter: "all",
       isBoardsLoading: false,
       isTasksLoading: false,
+      isUsersLoading: false,
+      usersLoaded: false,
       boardsError: "",
     };
+
+    let usersRequest = null;
+    const userLoadingText = "Подождите... информация загружается";
 
     const escapeHTML = (value) => String(value || "")
       .replaceAll("&", "&amp;")
@@ -1171,6 +1176,9 @@
     const userDisplay = (userID, emptyText = "Не назначен") => {
       const user = state.users.find((item) => item.id === userID);
       if (!user) {
+        if (userID && (state.isUsersLoading || !state.usersLoaded)) {
+          return userLoadingText;
+        }
         return emptyText;
       }
       const name = cleanDisplayName(user.full_name || [user.first_name, user.last_name].filter(Boolean).join(" "));
@@ -1222,6 +1230,11 @@
         const emptyOption = select.dataset.emptyOption || "";
         const users = relevantUsers();
         select.innerHTML = "";
+        if (state.isUsersLoading && users.length === 0) {
+          select.append(new Option(userLoadingText, selectedUserID));
+          select.value = selectedUserID;
+          return;
+        }
         if (emptyOption) {
           select.append(new Option(emptyOption, ""));
         }
@@ -1257,6 +1270,11 @@
       if (actorId) {
         userFilter.append(new Option("Мои задачи", actorId));
       }
+      if (state.isUsersLoading && state.users.length === 0) {
+        const loadingOption = new Option(userLoadingText, "loading");
+        loadingOption.disabled = true;
+        userFilter.append(loadingOption);
+      }
       relevantUsers().forEach((user) => {
         if (user.id === actorId) {
           return;
@@ -1266,6 +1284,45 @@
       if ([...userFilter.options].some((option) => option.value === currentValue)) {
         userFilter.value = currentValue;
       }
+    };
+
+    const refreshUserDependentUI = () => {
+      renderUserFilter();
+      renderTasks();
+      hydrateTaskModal();
+    };
+
+    const loadUsers = async () => {
+      if (state.usersLoaded) {
+        refreshUserDependentUI();
+        return state.users;
+      }
+      if (usersRequest) {
+        return usersRequest;
+      }
+
+      state.isUsersLoading = true;
+      refreshUserDependentUI();
+
+      usersRequest = requestJSON("/user/list_active")
+        .then((usersData) => {
+          state.users = Array.isArray(usersData.users) ? usersData.users : (Array.isArray(usersData["active users"]) ? usersData["active users"] : []);
+          state.usersLoaded = true;
+          return state.users;
+        })
+        .catch((error) => {
+          if (error.message !== "unauthorized") {
+            showMessage("Не удалось загрузить информацию пользователей.", true);
+          }
+          return state.users;
+        })
+        .finally(() => {
+          state.isUsersLoading = false;
+          usersRequest = null;
+          refreshUserDependentUI();
+        });
+
+      return usersRequest;
     };
 
     const updateBoardActionButtons = () => {
@@ -1498,7 +1555,12 @@
           <td>Нет</td>
           <td>
             <div class="task-actions">
-              <button class="ghost compact" type="button" data-edit-task>Редактировать</button>
+              <button class="ghost compact"
+                      type="button"
+                      hx-get="/tasks/${escapeHTML(task.id)}/edit"
+                      hx-target="#task-modal-root"
+                      hx-swap="innerHTML"
+                      data-open-task-edit>Редактировать</button>
               <button class="danger compact" type="button" data-delete-task>Удалить</button>
             </div>
           </td>
@@ -1977,6 +2039,8 @@
     };
 
     const loadBoardSearchFilters = async () => {
+      loadUsers();
+
       if (teamFilter) {
         requestJSON("/team/list")
           .then((teamsData) => {
@@ -1998,19 +2062,6 @@
               showMessage("Не удалось загрузить команды.", true);
             }
           });
-      }
-
-      try {
-        const usersData = await requestJSON("/user/list");
-        if (userFilter) {
-          state.users = Array.isArray(usersData.users) ? usersData.users : [];
-          renderUserFilter();
-          hydrateTaskModal();
-        }
-      } catch (error) {
-        if (error.message !== "unauthorized") {
-          showMessage("Не удалось загрузить фильтры досок.", true);
-        }
       }
     };
 
@@ -2077,9 +2128,33 @@
       }
     });
 
-    document.body.addEventListener("taskUpdated", async () => {
-      showMessage("Задача обновлена");
-      await loadTasksForSelectedBoard();
+    let taskUpdateRefreshTimer = null;
+    const handleTaskUpdated = () => {
+      if (taskUpdateRefreshTimer) {
+        window.clearTimeout(taskUpdateRefreshTimer);
+      }
+      taskUpdateRefreshTimer = window.setTimeout(async () => {
+        closeTaskModal();
+        showMessage("Задача обновлена");
+        await Promise.all([
+          loadUsers(),
+          loadTasksForSelectedBoard(),
+        ]);
+        refreshUserDependentUI();
+      }, 0);
+    };
+
+    document.body.addEventListener("taskUpdated", handleTaskUpdated);
+
+    document.body.addEventListener("htmx:afterRequest", (event) => {
+      const detail = event.detail || {};
+      const xhr = detail.xhr;
+      const responsePath = xhr && xhr.responseURL ? new URL(xhr.responseURL).pathname : "";
+      const path = detail.pathInfo ? detail.pathInfo.requestPath : (detail.requestConfig ? detail.requestConfig.path : responsePath);
+      const verb = detail.requestConfig ? String(detail.requestConfig.verb || "").toUpperCase() : "";
+      if (xhr && xhr.status >= 200 && xhr.status < 300 && verb === "PATCH" && /^\/tasks\/[^/]+$/.test(path)) {
+        handleTaskUpdated();
+      }
     });
 
     if (taskList) {
@@ -2093,6 +2168,9 @@
           return;
         }
         if (target.closest("[data-open-task]")) {
+          return;
+        }
+        if (target.closest("[data-open-task-edit]")) {
           return;
         }
         if (target.matches("[data-edit-task]")) {

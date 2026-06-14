@@ -13,6 +13,7 @@ type Response struct {
 	Email          valueobjects.Email `json:"email"`
 	Role           valueobjects.Role  `json:"role"`
 	TeamID         *uuid.UUID         `json:"team_id"`
+	TeamName       string             `json:"team_name"`
 	PersonalDataID uuid.UUID          `json:"personal_data_id"`
 	FirstName      string             `json:"first_name"`
 	LastName       string             `json:"last_name"`
@@ -34,6 +35,17 @@ func FromProfile(profile *userApplication.Profile) Response {
 	response.FirstName = profile.PersonalData.FirstName
 	response.LastName = profile.PersonalData.LastName
 	response.FullName = profile.PersonalData.FirstName + " " + profile.PersonalData.LastName
+	response.TeamName = profile.TeamName
+	return response
+}
+
+func FromProfiles(profiles []*userApplication.Profile) []Response {
+	response := make([]Response, 0, len(profiles))
+	for _, profile := range profiles {
+		if profile != nil {
+			response = append(response, FromProfile(profile))
+		}
+	}
 	return response
 }
 

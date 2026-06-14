@@ -534,9 +534,8 @@ func (h *handler) GetByID(c *gin.Context) {
 }
 
 func (h *handler) ListActive(c *gin.Context) {
-	var response []Response
 	ctx := c.Request.Context()
-	activeUsers, err := h.service.ListActive(ctx)
+	activeUsers, err := h.service.ListActiveProfiles(ctx)
 	if err != nil {
 		status, msg := mapError(err)
 		c.JSON(status, gin.H{
@@ -544,16 +543,17 @@ func (h *handler) ListActive(c *gin.Context) {
 		})
 		return
 	}
-	response = FromDomainReponses(activeUsers)
+	response := FromProfiles(activeUsers)
 
 	c.JSON(http.StatusOK, gin.H{
+		"users":        response,
 		"active users": response,
 	})
 }
 
 func (h *handler) List(c *gin.Context) {
 	ctx := c.Request.Context()
-	users, err := h.service.List(ctx)
+	users, err := h.service.ListActiveProfiles(ctx)
 	if err != nil {
 		status, msg := mapError(err)
 		c.JSON(status, gin.H{
@@ -561,15 +561,7 @@ func (h *handler) List(c *gin.Context) {
 		})
 		return
 	}
-	response := make([]Response, 0, len(users))
-	for _, user := range users {
-		profile, err := h.service.GetProfileByID(ctx, user.ID)
-		if err != nil {
-			response = append(response, FromDomain(user))
-			continue
-		}
-		response = append(response, FromProfile(profile))
-	}
+	response := FromProfiles(users)
 
 	c.JSON(http.StatusOK, gin.H{
 		"users": response,
