@@ -5,6 +5,7 @@ import (
 	"errors"
 	"task_tracker/internal/application/common"
 	"task_tracker/internal/common_errors"
+	"task_tracker/internal/perf"
 	"task_tracker/internal/repo/team"
 	userRepo "task_tracker/internal/repo/user"
 
@@ -144,18 +145,13 @@ func (s *service) ListActive(ctx context.Context) ([]*Team, error) {
 }
 
 func (s *service) List(ctx context.Context) ([]*Team, error) {
-	var result []*Team
-	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
-		team, err := s.teamRepo.List(ctx)
-		if err != nil {
-			return mapGetError(err)
-		}
-		result = team
-		return nil
-	})
+	defer perf.Track(ctx, "service.ListTeams.inner")()
 
+	repoDone := perf.Track(ctx, "repo.ListTeams")
+	result, err := s.teamRepo.List(ctx)
+	repoDone()
 	if err != nil {
-		return nil, err
+		return nil, mapGetError(err)
 	}
 	return result, nil
 }

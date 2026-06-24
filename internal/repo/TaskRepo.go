@@ -11,6 +11,7 @@ import (
 	"task_tracker/internal/common_errors"
 	"task_tracker/internal/domain/task"
 	"task_tracker/internal/infrastracture/db"
+	"task_tracker/internal/perf"
 	"task_tracker/internal/repo/dberrors"
 
 	"github.com/google/uuid"
@@ -109,9 +110,13 @@ func (r *taskRepo) GetByID(ctx context.Context, id uuid.UUID) (*Task, error) {
 }
 
 func (r *taskRepo) FindMany(ctx context.Context, filters TaskFilters) ([]*Task, error) {
+	defer perf.Track(ctx, "repo.FindManyTasks.inner")()
+
 	query, args := buildFindManyQuery(filters)
 
+	queryDone := perf.Track(ctx, "db.Query")
 	rows, err := queryRows(ctx, r.db, query, args...)
+	queryDone()
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
@@ -120,6 +125,8 @@ func (r *taskRepo) FindMany(ctx context.Context, filters TaskFilters) ([]*Task, 
 	}
 	defer rows.Close()
 
+	scanDone := perf.Track(ctx, "rows.ScanAll")
+	defer scanDone()
 	return scanTasks(rows)
 }
 

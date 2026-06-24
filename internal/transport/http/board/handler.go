@@ -4,8 +4,8 @@ import (
 	"net/http"
 
 	boardapp "task_tracker/internal/application/board"
-	"task_tracker/internal/common_errors"
 	"task_tracker/internal/domain/auth"
+	"task_tracker/internal/perf"
 	"task_tracker/internal/transport/http/middleware"
 
 	"github.com/gin-gonic/gin"
@@ -40,7 +40,7 @@ func (h *handler) Create(c *gin.Context) {
 
 	var req CreateBoardRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": common_errors.ErrBadRequest.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Некорректный запрос"})
 		return
 	}
 
@@ -69,7 +69,7 @@ func (h *handler) GetByID(c *gin.Context) {
 
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": common_errors.ErrInvalidID.Error()})
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "Некорректный идентификатор доски"})
 		return
 	}
 
@@ -84,19 +84,28 @@ func (h *handler) GetByID(c *gin.Context) {
 }
 
 func (h *handler) List(c *gin.Context) {
+	defer perf.Track(c.Request.Context(), "handler_total")()
+	perf.LogStep(c.Request.Context(), "handler_start")
+
 	actor, ok := actorFromContext(c)
 	if !ok {
 		return
 	}
 
+	serviceDone := perf.Track(c.Request.Context(), "service.ListBoards")
 	boards, err := h.service.List(c.Request.Context(), actor)
+	serviceDone()
 	if err != nil {
 		status, msg := mapError(err)
+		jsonDone := perf.Track(c.Request.Context(), "json_response")
 		c.JSON(status, gin.H{"error": msg})
+		jsonDone()
 		return
 	}
 
+	jsonDone := perf.Track(c.Request.Context(), "json_response")
 	c.JSON(http.StatusOK, gin.H{"boards": NewResponses(boards)})
+	jsonDone()
 }
 
 func (h *handler) ListByTeamID(c *gin.Context) {
@@ -107,7 +116,7 @@ func (h *handler) ListByTeamID(c *gin.Context) {
 
 	teamID, err := uuid.Parse(c.Param("team_id"))
 	if err != nil {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": common_errors.ErrInvalidID.Error()})
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "Некорректный идентификатор команды"})
 		return
 	}
 
@@ -172,13 +181,13 @@ func (h *handler) Update(c *gin.Context) {
 
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": common_errors.ErrInvalidID.Error()})
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "Некорректный идентификатор доски"})
 		return
 	}
 
 	var req UpdateBoardRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": common_errors.ErrBadRequest.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Некорректный запрос"})
 		return
 	}
 
@@ -207,7 +216,7 @@ func (h *handler) Delete(c *gin.Context) {
 
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": common_errors.ErrInvalidID.Error()})
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "Некорректный идентификатор доски"})
 		return
 	}
 
@@ -223,7 +232,7 @@ func (h *handler) Delete(c *gin.Context) {
 func actorFromContext(c *gin.Context) (auth.Actor, bool) {
 	actor, ok := middleware.GetActor(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing actor"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Требуется авторизация"})
 		return auth.Actor{}, false
 	}
 	return actor, true
@@ -237,7 +246,7 @@ func parseOptionalUUIDQuery(c *gin.Context, name string) (*uuid.UUID, bool) {
 
 	id, err := uuid.Parse(raw)
 	if err != nil {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "invalid " + name})
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": invalidBoardFilterMessage(name)})
 		return nil, false
 	}
 	if id == uuid.Nil {
@@ -245,4 +254,15 @@ func parseOptionalUUIDQuery(c *gin.Context, name string) (*uuid.UUID, bool) {
 	}
 
 	return &id, true
+}
+
+func invalidBoardFilterMessage(name string) string {
+	switch name {
+	case "team_id":
+		return "Некорректный идентификатор команды"
+	case "user_id":
+		return "Некорректный идентификатор пользователя"
+	default:
+		return "Некорректный фильтр досок"
+	}
 }

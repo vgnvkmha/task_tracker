@@ -7,6 +7,7 @@ import (
 	"task_tracker/internal/common_errors"
 	"task_tracker/internal/domain/auth"
 	valueobjects "task_tracker/internal/domain/value_objects"
+	"task_tracker/internal/perf"
 	"task_tracker/internal/transport/http/middleware"
 	"time"
 
@@ -534,21 +535,30 @@ func (h *handler) GetByID(c *gin.Context) {
 }
 
 func (h *handler) ListActive(c *gin.Context) {
+	defer perf.Track(c.Request.Context(), "handler_total")()
+	perf.LogStep(c.Request.Context(), "handler_start")
+
 	ctx := c.Request.Context()
+	serviceDone := perf.Track(ctx, "service.ListActiveProfiles")
 	activeUsers, err := h.service.ListActiveProfiles(ctx)
+	serviceDone()
 	if err != nil {
 		status, msg := mapError(err)
+		jsonDone := perf.Track(ctx, "json_response")
 		c.JSON(status, gin.H{
 			"error": msg,
 		})
+		jsonDone()
 		return
 	}
 	response := FromProfiles(activeUsers)
 
+	jsonDone := perf.Track(ctx, "json_response")
 	c.JSON(http.StatusOK, gin.H{
 		"users":        response,
 		"active users": response,
 	})
+	jsonDone()
 }
 
 func (h *handler) List(c *gin.Context) {

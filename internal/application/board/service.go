@@ -8,6 +8,7 @@ import (
 	"task_tracker/internal/common_errors"
 	"task_tracker/internal/domain/auth"
 	domainboard "task_tracker/internal/domain/board"
+	"task_tracker/internal/perf"
 	"task_tracker/internal/repo"
 
 	"github.com/google/uuid"
@@ -110,20 +111,14 @@ func (s *service) GetByID(ctx context.Context, actor auth.Actor, id uuid.UUID) (
 }
 
 func (s *service) List(ctx context.Context, actor auth.Actor) ([]*Board, error) {
-	var result []*Board
+	defer perf.Track(ctx, "service.ListBoards.inner")()
 
-	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
-		boards, err := s.boardRepo.List(ctx)
-		if err != nil {
-			return mapRepoError(err, ErrListBoardsFailed)
-		}
-
-		result = boards
-		return nil
-	})
-
+	repoDone := perf.Track(ctx, "repo.ListBoards")
+	result, err := s.boardRepo.List(ctx)
+	repoDone()
 	if err != nil {
-		return nil, logError(err, s.logger,
+		mappedErr := mapRepoError(err, ErrListBoardsFailed)
+		return nil, logError(mappedErr, s.logger,
 			"operation", "list",
 			"actor_id", actor.ID,
 			"actor_role", actor.Role,
@@ -254,7 +249,11 @@ func (s *service) Delete(ctx context.Context, actor auth.Actor, id uuid.UUID) er
 		}
 
 		if err := s.boardRepo.Delete(ctx, id); err != nil {
-			return mapRepoError(err, ErrDeleteBoardFailed)
+			mappedErr := mapRepoError(err, ErrDeleteBoardFailed)
+			if errors.Is(mappedErr, ErrInvalidInput) {
+				return ErrBoardHasTasks
+			}
+			return mappedErr
 		}
 		return nil
 	})

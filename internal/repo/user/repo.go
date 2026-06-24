@@ -9,6 +9,7 @@ import (
 	personaldata "task_tracker/internal/domain/personal_data"
 	"task_tracker/internal/domain/user"
 	"task_tracker/internal/infrastracture/db"
+	"task_tracker/internal/perf"
 	"task_tracker/internal/repo/dberrors"
 
 	"github.com/google/uuid"
@@ -281,6 +282,8 @@ func (r *userRepo) ListActive(ctx context.Context) ([]*User, error) {
 }
 
 func (r *userRepo) ListActiveProfiles(ctx context.Context) ([]*ActiveUserProfile, error) {
+	defer perf.Track(ctx, "repo.ListActiveProfiles.inner")()
+
 	const query = `
 		SELECT
 			u.id,
@@ -308,16 +311,20 @@ func (r *userRepo) ListActiveProfiles(ctx context.Context) ([]*ActiveUserProfile
 		err  error
 	)
 
+	queryDone := perf.Track(ctx, "db.Query")
 	if tx, ok := db.GetTx(ctx); ok {
 		rows, err = tx.QueryContext(ctx, query)
 	} else {
 		rows, err = r.db.QueryContext(ctx, query)
 	}
+	queryDone()
 	if err != nil {
 		return nil, dberrors.Map(err)
 	}
 	defer rows.Close()
 
+	scanDone := perf.Track(ctx, "rows.ScanAll")
+	defer scanDone()
 	profiles := make([]*ActiveUserProfile, 0)
 	for rows.Next() {
 		profile, err := scanActiveUserProfile(rows)

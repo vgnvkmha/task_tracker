@@ -9,6 +9,7 @@ var (
 	ErrListBoardsFailed   = errors.New("failed to list boards")
 	ErrUpdateBoardFailed  = errors.New("failed to update board")
 	ErrDeleteBoardFailed  = errors.New("failed to delete board")
+	ErrBoardHasTasks      = errors.New("board has tasks")
 
 	ErrInvalidInput      = errors.New("invalid board input")
 	ErrInvalidBoardID    = errors.New("invalid board id")

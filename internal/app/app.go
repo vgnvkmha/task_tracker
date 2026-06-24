@@ -63,7 +63,7 @@ func Run() error {
 
 	teamService := team_application.New(teamRepo, usersRepo, logger, txManager)
 	teamHandler := team_handler.New(teamService)
-	taskService := task_service.New(tasksRepo, logger, txManager)
+	taskService := task_service.New(tasksRepo, boardsRepo, logger, txManager)
 	taskHandler := task_handler.New(taskService)
 	boardService := board_application.New(boardsRepo, logger, txManager)
 	boardHandler := board_handler.New(boardService)
@@ -71,6 +71,7 @@ func Run() error {
 	router := gin.Default()
 	router.SetTrustedProxies(nil) //TODO: change later
 	router.SetHTMLTemplate(handler_user.Templates())
+	router.Use(middleware.PerfRequestMiddleware())
 	router.Use(middleware.MockActorMiddleware())
 	auth_handler.RegisterRoutes(router, authHandler)
 	handler_user.RegisterRoutes(router, userHandler, jwtService, authCfg.LegacyHeadersEnabled)

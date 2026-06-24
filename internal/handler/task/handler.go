@@ -1,6 +1,7 @@
 package task_handler
 
 import (
+	"errors"
 	"html/template"
 	"net/http"
 	"net/url"
@@ -11,6 +12,7 @@ import (
 	"task_tracker/internal/domain/auth"
 	domaintask "task_tracker/internal/domain/task"
 	dto "task_tracker/internal/handler/task/dto"
+	"task_tracker/internal/perf"
 	"task_tracker/internal/render"
 	"task_tracker/internal/transport/http/middleware"
 
@@ -48,13 +50,13 @@ func New(service taskApplication.TaskService) TaskHandler {
 func (h *handler) Create(ctx *gin.Context) {
 	actor, ok := middleware.GetActor(ctx)
 	if !ok {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Требуется авторизация"})
 		return
 	}
 
 	var request dto.TaskRequest
 	if err := ctx.ShouldBindJSON(&request); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Некорректный запрос"})
 		return
 	}
 
@@ -73,7 +75,7 @@ func (h *handler) Create(ctx *gin.Context) {
 func (h *handler) GetByID(ctx *gin.Context) {
 	actor, ok := middleware.GetActor(ctx)
 	if !ok {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Требуется авторизация"})
 		return
 	}
 
@@ -97,7 +99,7 @@ func (h *handler) GetByID(ctx *gin.Context) {
 func (h *handler) List(ctx *gin.Context) {
 	actor, ok := middleware.GetActor(ctx)
 	if !ok {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Требуется авторизация"})
 		return
 	}
 
@@ -119,9 +121,12 @@ func (h *handler) List(ctx *gin.Context) {
 }
 
 func (h *handler) GetByBoardID(ctx *gin.Context) {
+	defer perf.Track(ctx.Request.Context(), "handler_total")()
+	perf.LogStep(ctx.Request.Context(), "handler_start")
+
 	actor, ok := middleware.GetActor(ctx)
 	if !ok {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Требуется авторизация"})
 		return
 	}
 
@@ -130,22 +135,28 @@ func (h *handler) GetByBoardID(ctx *gin.Context) {
 		return
 	}
 
+	serviceDone := perf.Track(ctx.Request.Context(), "service.FindByBoardID")
 	tasks, err := h.service.FindByBoardID(ctx.Request.Context(), actor, boardID)
+	serviceDone()
 	if err != nil {
 		status, msg := mapError(err)
+		jsonDone := perf.Track(ctx.Request.Context(), "json_response")
 		ctx.JSON(status, gin.H{"error": msg})
+		jsonDone()
 		return
 	}
 
+	jsonDone := perf.Track(ctx.Request.Context(), "json_response")
 	ctx.JSON(http.StatusOK, gin.H{
 		"tasks": dto.ToTaskResponses(tasks),
 	})
+	jsonDone()
 }
 
 func (h *handler) GetByAssigneeID(ctx *gin.Context) {
 	actor, ok := middleware.GetActor(ctx)
 	if !ok {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Требуется авторизация"})
 		return
 	}
 
@@ -169,7 +180,7 @@ func (h *handler) GetByAssigneeID(ctx *gin.Context) {
 func (h *handler) Update(ctx *gin.Context) {
 	actor, ok := middleware.GetActor(ctx)
 	if !ok {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Требуется авторизация"})
 		return
 	}
 
@@ -180,7 +191,7 @@ func (h *handler) Update(ctx *gin.Context) {
 
 	var request dto.UpdateTaskRequest
 	if err := ctx.ShouldBindJSON(&request); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Некорректный запрос"})
 		return
 	}
 
@@ -199,7 +210,7 @@ func (h *handler) Update(ctx *gin.Context) {
 func (h *handler) Delete(ctx *gin.Context) {
 	actor, ok := middleware.GetActor(ctx)
 	if !ok {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Требуется авторизация"})
 		return
 	}
 
@@ -250,7 +261,7 @@ func parseOptionalUUIDQuery(ctx *gin.Context, name string, dest **uuid.UUID) boo
 
 	id, err := uuid.Parse(raw)
 	if err != nil {
-		ctx.JSON(http.StatusUnprocessableEntity, gin.H{"error": "invalid " + name})
+		ctx.JSON(http.StatusUnprocessableEntity, gin.H{"error": invalidTaskFieldMessage(name)})
 		return false
 	}
 
@@ -261,10 +272,27 @@ func parseOptionalUUIDQuery(ctx *gin.Context, name string, dest **uuid.UUID) boo
 func parseIDParam(ctx *gin.Context, name string) (uuid.UUID, bool) {
 	id, err := uuid.Parse(ctx.Param(name))
 	if err != nil {
-		ctx.JSON(http.StatusUnprocessableEntity, gin.H{"error": "invalid " + name})
+		ctx.JSON(http.StatusUnprocessableEntity, gin.H{"error": invalidTaskFieldMessage(name)})
 		return uuid.Nil, false
 	}
 	return id, true
+}
+
+func invalidTaskFieldMessage(name string) string {
+	switch name {
+	case "id":
+		return "Некорректный идентификатор задачи"
+	case "board_id":
+		return "Некорректный идентификатор доски"
+	case "assignee_id":
+		return "Некорректный идентификатор исполнителя"
+	case "reporter_id":
+		return "Некорректный идентификатор автора"
+	case "sprint_id":
+		return "Некорректный идентификатор спринта"
+	default:
+		return "Некорректный параметр задачи"
+	}
 }
 
 func (h *handler) ShowTasks(ctx *gin.Context) {
@@ -392,7 +420,7 @@ func (h *handler) CreateFromUI(ctx *gin.Context) {
 	}
 
 	if _, err := h.service.Create(ctx.Request.Context(), actor, input); err != nil {
-		redirectTasksUI(ctx, "", "create")
+		redirectTasksUI(ctx, "", taskCreateErrorCode(err))
 		return
 	}
 
@@ -581,6 +609,14 @@ func taskError(value string) string {
 	switch value {
 	case "invalid":
 		return "Проверьте данные задачи"
+	case "create_board_required":
+		return "Выберите доску для задачи"
+	case "create_board_not_found":
+		return "Доска для задачи не найдена"
+	case "create_team_required":
+		return "Нельзя создать задачу: пользователь не состоит в команде"
+	case "create_board_team_mismatch":
+		return "Нельзя создать задачу в доске другой команды"
 	case "create":
 		return "Не удалось создать задачу"
 	case "update":
@@ -589,6 +625,21 @@ func taskError(value string) string {
 		return "Не удалось удалить задачу"
 	default:
 		return ""
+	}
+}
+
+func taskCreateErrorCode(err error) string {
+	switch {
+	case errors.Is(err, taskApplication.ErrBoardRequired):
+		return "create_board_required"
+	case errors.Is(err, taskApplication.ErrBoardNotFound):
+		return "create_board_not_found"
+	case errors.Is(err, taskApplication.ErrActorTeamRequired):
+		return "create_team_required"
+	case errors.Is(err, taskApplication.ErrBoardTeamMismatch):
+		return "create_board_team_mismatch"
+	default:
+		return "create"
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"task_tracker/internal/common_errors"
 	"task_tracker/internal/domain/team"
 	"task_tracker/internal/infrastracture/db"
+	"task_tracker/internal/perf"
 	"task_tracker/internal/repo/dberrors"
 
 	"github.com/google/uuid"
@@ -263,6 +264,8 @@ func (r *teamRepo) ListActive(ctx context.Context) ([]*Team, error) {
 }
 
 func (r *teamRepo) List(ctx context.Context) ([]*Team, error) {
+	defer perf.Track(ctx, "repo.ListTeams.inner")()
+
 	const query = `
         SELECT id, name, timezone, leader_id, is_active
         FROM teams
@@ -273,17 +276,20 @@ func (r *teamRepo) List(ctx context.Context) ([]*Team, error) {
 		err  error
 	)
 
+	queryDone := perf.Track(ctx, "db.Query")
 	if tx, ok := db.GetTx(ctx); ok {
 		rows, err = tx.QueryContext(ctx, query)
 	} else {
 		rows, err = r.db.QueryContext(ctx, query)
 	}
+	queryDone()
 
 	if err != nil {
 		return nil, dberrors.Map(err)
 	}
 	defer rows.Close()
 
+	scanDone := perf.Track(ctx, "rows.ScanAll")
 	var teams []*Team
 
 	for rows.Next() {
@@ -306,6 +312,7 @@ func (r *teamRepo) List(ctx context.Context) ([]*Team, error) {
 	if err := rows.Err(); err != nil {
 		return nil, dberrors.Map(err)
 	}
+	scanDone()
 
 	return teams, nil
 }

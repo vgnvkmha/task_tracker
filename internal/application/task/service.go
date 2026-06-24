@@ -8,6 +8,7 @@ import (
 	"task_tracker/internal/common_errors"
 	"task_tracker/internal/domain/auth"
 	domaintask "task_tracker/internal/domain/task"
+	"task_tracker/internal/perf"
 	"task_tracker/internal/repo"
 
 	"github.com/google/uuid"
@@ -32,15 +33,17 @@ type TaskService interface {
 }
 
 type service struct {
-	taskRepo repo.TaskRepo
+	taskRepo  repo.TaskRepo
+	boardRepo repo.BoardRepo
 
 	logger      *zap.SugaredLogger
 	transaction common.TxManager
 }
 
-func New(taskRepo repo.TaskRepo, logger *zap.SugaredLogger, transaction common.TxManager) TaskService {
+func New(taskRepo repo.TaskRepo, boardRepo repo.BoardRepo, logger *zap.SugaredLogger, transaction common.TxManager) TaskService {
 	return &service{
 		taskRepo:    taskRepo,
+		boardRepo:   boardRepo,
 		logger:      logger,
 		transaction: transaction,
 	}
@@ -50,6 +53,10 @@ func (s *service) Create(ctx context.Context, actor auth.Actor, input CreateTask
 	var result *Task
 
 	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
+		if err := s.validateCreateBoardAccess(ctx, actor, input.BoardID); err != nil {
+			return err
+		}
+
 		reporterID := actor.ID
 		if input.ReporterID != nil {
 			if !actor.Role.IsManagerRole() && *input.ReporterID != actor.ID {
@@ -98,6 +105,28 @@ func (s *service) Create(ctx context.Context, actor auth.Actor, input CreateTask
 	return result, nil
 }
 
+func (s *service) validateCreateBoardAccess(ctx context.Context, actor auth.Actor, boardID *uuid.UUID) error {
+	if boardID == nil || *boardID == uuid.Nil {
+		return ErrBoardRequired
+	}
+	if actor.TeamID == nil || *actor.TeamID == uuid.Nil {
+		return ErrActorTeamRequired
+	}
+
+	board, err := s.boardRepo.GetByID(ctx, *boardID)
+	if err != nil {
+		return mapRepoError(err, ErrBoardNotFound)
+	}
+	if board == nil {
+		return ErrBoardNotFound
+	}
+	if board.TeamId != *actor.TeamID {
+		return ErrBoardTeamMismatch
+	}
+
+	return nil
+}
+
 func (s *service) GetByID(ctx context.Context, actor auth.Actor, id uuid.UUID) (*Task, error) {
 	var result *Task
 
@@ -127,25 +156,24 @@ func (s *service) GetByID(ctx context.Context, actor auth.Actor, id uuid.UUID) (
 }
 
 func (s *service) FindMany(ctx context.Context, actor auth.Actor, filters TaskFilters) ([]*Task, error) {
-	var result []*Task
+	defer perf.Track(ctx, "service.FindMany.inner")()
 
-	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
-		if filters.Status != nil {
-			if err := filters.Status.IsValid(); err != nil {
-				return ErrInvalidStatus
-			}
+	if filters.Status != nil {
+		if err := filters.Status.IsValid(); err != nil {
+			return nil, logError(ErrInvalidStatus, s.logger,
+				"operation", "find_many",
+				"actor_id", actor.ID,
+				"actor_role", actor.Role,
+			)
 		}
+	}
 
-		tasks, err := s.taskRepo.FindMany(ctx, toRepoFilters(filters))
-		if err != nil {
-			return mapRepoError(err, ErrTaskNotFound)
-		}
-		result = tasks
-		return nil
-	})
-
+	repoDone := perf.Track(ctx, "repo.FindManyTasks")
+	result, err := s.taskRepo.FindMany(ctx, toRepoFilters(filters))
+	repoDone()
 	if err != nil {
-		return nil, logError(err, s.logger,
+		mappedErr := mapRepoError(err, ErrTaskNotFound)
+		return nil, logError(mappedErr, s.logger,
 			"operation", "find_many",
 			"actor_id", actor.ID,
 			"actor_role", actor.Role,

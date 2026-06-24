@@ -8,6 +8,7 @@ import (
 	"task_tracker/internal/domain/auth"
 	personaldata "task_tracker/internal/domain/personal_data"
 	"task_tracker/internal/domain/user"
+	"task_tracker/internal/perf"
 	"task_tracker/internal/repo/team"
 	userRepo "task_tracker/internal/repo/user"
 
@@ -466,32 +467,31 @@ func (s *service) ListActive(ctx context.Context) ([]*User, error) {
 }
 
 func (s *service) ListActiveProfiles(ctx context.Context) ([]*Profile, error) {
-	var result []*Profile
-	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
-		profiles, err := s.userRepo.ListActiveProfiles(ctx)
-		if err != nil {
-			return mapGetError(err)
-		}
-		result = make([]*Profile, 0, len(profiles))
-		for _, profile := range profiles {
-			if profile == nil {
-				continue
-			}
-			result = append(result, &Profile{
-				User:         profile.User,
-				PersonalData: profile.PersonalData,
-				TeamName:     profile.TeamName,
-			})
-		}
-		return nil
-	})
+	defer perf.Track(ctx, "service.ListActiveProfiles.inner")()
 
+	repoDone := perf.Track(ctx, "repo.ListActiveProfiles")
+	profiles, err := s.userRepo.ListActiveProfiles(ctx)
+	repoDone()
 	if err != nil {
+		err = mapGetError(err)
 		logFailure(s.logger, "list active profiles operation failed", err,
 			"operation", "list_active_profiles",
 		)
 		return nil, err
 	}
+
+	result := make([]*Profile, 0, len(profiles))
+	for _, profile := range profiles {
+		if profile == nil {
+			continue
+		}
+		result = append(result, &Profile{
+			User:         profile.User,
+			PersonalData: profile.PersonalData,
+			TeamName:     profile.TeamName,
+		})
+	}
+
 	return result, nil
 }
 

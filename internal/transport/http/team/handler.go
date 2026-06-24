@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"task_tracker/internal/application/team"
 	"task_tracker/internal/common_errors"
+	"task_tracker/internal/perf"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -128,21 +129,30 @@ func (h *handler) ListActive(c *gin.Context) {
 }
 
 func (h *handler) List(c *gin.Context) {
+	defer perf.Track(c.Request.Context(), "handler_total")()
+	perf.LogStep(c.Request.Context(), "handler_start")
+
 	var response []*Response
 	ctx := c.Request.Context()
+	serviceDone := perf.Track(ctx, "service.ListTeams")
 	teams, err := h.service.List(ctx)
+	serviceDone()
 	if err != nil {
 		status, msg := mapError(err)
+		jsonDone := perf.Track(ctx, "json_response")
 		c.JSON(status, gin.H{
 			"error": msg,
 		})
+		jsonDone()
 		return
 	}
 	response = NewResponses(teams)
 
+	jsonDone := perf.Track(ctx, "json_response")
 	c.JSON(http.StatusOK, gin.H{
 		"team": response,
 	})
+	jsonDone()
 }
 
 func (h *handler) Update(c *gin.Context) {

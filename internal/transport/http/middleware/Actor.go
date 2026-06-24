@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -12,6 +13,7 @@ import (
 	"task_tracker/internal/domain/auth"
 	valueobjects "task_tracker/internal/domain/value_objects"
 	infraauth "task_tracker/internal/infrastracture/auth"
+	"task_tracker/internal/perf"
 )
 
 const actorKey = "actor" //TODO: remove hadrcode
@@ -34,6 +36,9 @@ func UIActorMiddleware(tokenParser TokenParser) gin.HandlerFunc {
 
 func actorMiddleware(tokenParser TokenParser, legacyHeadersEnabled bool, unauthorized func(*gin.Context, string)) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
+		attachPerfEndpoint(ctx)
+		defer perf.Track(ctx.Request.Context(), "middleware.ActorMiddleware")()
+
 		token, hasAuthorization := bearerToken(ctx.GetHeader("Authorization"))
 		if hasAuthorization {
 			if token == "" || tokenParser == nil {
@@ -92,12 +97,37 @@ func GetActor(ctx *gin.Context) (auth.Actor, bool) {
 
 func MockActorMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		attachPerfEndpoint(c)
+		defer perf.Track(c.Request.Context(), "middleware.MockActorMiddleware")()
+
 		c.Set(actorKey, auth.Actor{
 			ID:   uuid.MustParse("3f1c2a6e-9b7d-4c8f-8a2e-1d5b6f7a9c10"),
 			Role: "admin",
 		})
 		c.Next()
 	}
+}
+
+func PerfRequestMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		attachPerfEndpoint(c)
+		perf.LogStep(c.Request.Context(), "request_start")
+		start := time.Now()
+
+		c.Next()
+
+		if endpoint, ok := perf.Endpoint(c.Request.Context()); ok {
+			log.Printf("[PERF] endpoint=%s step=request_total duration=%s status=%d", endpoint, time.Since(start), c.Writer.Status())
+		}
+	}
+}
+
+func attachPerfEndpoint(c *gin.Context) {
+	endpoint := c.FullPath()
+	if endpoint == "" || !perf.IsTrackedEndpoint(endpoint) {
+		return
+	}
+	c.Request = c.Request.WithContext(perf.WithEndpoint(c.Request.Context(), endpoint))
 }
 
 func bearerToken(header string) (string, bool) {
