@@ -154,7 +154,7 @@ func (r *fakeUserRepo) GetByID(ctx context.Context, id uuid.UUID) (*userRepo.Use
 func (r *fakeUserRepo) ListActive(ctx context.Context) ([]*userRepo.User, error) {
 	var users []*userRepo.User
 	for _, user := range r.users {
-		if user.IsActive {
+		if !user.IsDeleted() {
 			users = append(users, user)
 		}
 	}
@@ -164,9 +164,17 @@ func (r *fakeUserRepo) ListActive(ctx context.Context) ([]*userRepo.User, error)
 func (r *fakeUserRepo) ListActiveProfiles(ctx context.Context) ([]*userRepo.ActiveUserProfile, error) {
 	var profiles []*userRepo.ActiveUserProfile
 	for _, user := range r.users {
-		if user.IsActive {
+		if !user.IsDeleted() {
 			profiles = append(profiles, &userRepo.ActiveUserProfile{User: user})
 		}
+	}
+	return profiles, nil
+}
+
+func (r *fakeUserRepo) ListProfiles(ctx context.Context) ([]*userRepo.ActiveUserProfile, error) {
+	var profiles []*userRepo.ActiveUserProfile
+	for _, user := range r.users {
+		profiles = append(profiles, &userRepo.ActiveUserProfile{User: user})
 	}
 	return profiles, nil
 }
@@ -183,6 +191,16 @@ func (r *fakeUserRepo) Update(ctx context.Context, id uuid.UUID, user userRepo.U
 	user.ID = id
 	r.users[id] = &user
 	return &user, nil
+}
+
+func (r *fakeUserRepo) Restore(ctx context.Context, id uuid.UUID) (*userRepo.User, error) {
+	user, ok := r.users[id]
+	if !ok {
+		return nil, common_errors.ErrNotFound
+	}
+	user.IsActive = true
+	user.DeletedAt = nil
+	return user, nil
 }
 
 func (r *fakeUserRepo) Delete(ctx context.Context, id uuid.UUID) error {

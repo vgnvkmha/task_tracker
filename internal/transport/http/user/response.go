@@ -1,6 +1,8 @@
 package user
 
 import (
+	"time"
+
 	userApplication "task_tracker/internal/application/user"
 	domainUser "task_tracker/internal/domain/user"
 	valueobjects "task_tracker/internal/domain/value_objects"
@@ -18,16 +20,27 @@ type Response struct {
 	FirstName      string             `json:"first_name"`
 	LastName       string             `json:"last_name"`
 	FullName       string             `json:"full_name"`
+	Age            *uint8             `json:"age"`
+	BirthDate      string             `json:"birth_date"`
+	IsActive       bool               `json:"is_active"`
+	IsDeleted      bool               `json:"is_deleted"`
+	DeletedAt      string             `json:"deleted_at"`
 }
 
 func FromDomain(user *domainUser.User) Response {
-	return Response{
+	response := Response{
 		ID:             user.ID,
 		Email:          user.Email,
 		Role:           user.Role,
 		TeamID:         user.TeamID,
 		PersonalDataID: user.PersonalDataID,
+		IsActive:       user.IsActive,
+		IsDeleted:      user.IsDeleted(),
 	}
+	if user.DeletedAt != nil {
+		response.DeletedAt = user.DeletedAt.Format(time.RFC3339)
+	}
+	return response
 }
 
 func FromProfile(profile *userApplication.Profile) Response {
@@ -36,6 +49,10 @@ func FromProfile(profile *userApplication.Profile) Response {
 	response.LastName = profile.PersonalData.LastName
 	response.FullName = profile.PersonalData.FirstName + " " + profile.PersonalData.LastName
 	response.TeamName = profile.TeamName
+	response.Age = profile.PersonalData.Age
+	if profile.PersonalData.BirthDate != nil {
+		response.BirthDate = profile.PersonalData.BirthDate.Format(time.DateOnly)
+	}
 	return response
 }
 

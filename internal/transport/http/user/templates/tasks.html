@@ -1329,7 +1329,12 @@
         <h1>Задачи</h1>
         <p class="meta">Создание, редактирование и контроль задач</p>
       </div>
-      <a class="button subtle" href="/ui/users/cabinet">Личный кабинет</a>
+      <div class="actions">
+        {{ if .is_admin }}
+          <a class="button subtle" href="/ui/users/admin">Администрирование</a>
+        {{ end }}
+        <a class="button subtle" href="/ui/users/cabinet">Личный кабинет</a>
+      </div>
     </header>
 
     {{ if .message }}

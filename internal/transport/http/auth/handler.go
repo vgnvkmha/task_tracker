@@ -52,6 +52,12 @@ func (h *Handler) Login(c *gin.Context) {
 			})
 			return
 		}
+		if errors.Is(err, userapplication.ErrUserAlreadyDeleted) {
+			c.JSON(http.StatusGone, gin.H{
+				"error": "user restore required",
+			})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "internal server error",
 		})

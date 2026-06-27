@@ -28,12 +28,14 @@ type UserService interface {
 	CreateByActor(ctx context.Context, actor auth.Actor, userInput CreateUserInput) (*User, error)
 	Update(ctx context.Context, actor auth.Actor, userInput UpdateUserInput) (*User, error)
 	Login(ctx context.Context, email string, password string) (*User, error)
+	Restore(ctx context.Context, email string, password string) (*User, error)
 
 	GetByID(ctx context.Context, id uuid.UUID) (*User, error)
 	GetProfileByID(ctx context.Context, id uuid.UUID) (*Profile, error)
 
 	ListActive(ctx context.Context) ([]*User, error)
 	ListActiveProfiles(ctx context.Context) ([]*Profile, error)
+	ListProfiles(ctx context.Context) ([]*Profile, error)
 	List(ctx context.Context) ([]*User, error)
 
 	DeleteByID(ctx context.Context, actor auth.Actor, id uuid.UUID) error
@@ -230,6 +232,9 @@ func (s *service) Update(ctx context.Context, actor auth.Actor, userInput Update
 			)
 			return ErrUserNotFound
 		}
+		if existingUser.IsDeleted() {
+			return ErrUserAlreadyDeleted
+		}
 		pd, err := s.dataRepo.Get(ctx, existingUser.PersonalDataID)
 		if err != nil {
 			logFailure(s.logger, "get personal data failed", err,
@@ -370,6 +375,14 @@ func (s *service) Login(ctx context.Context, email string, password string) (*Us
 		)
 		return nil, ErrInvalidCredentials
 	}
+	if foundUser.IsDeleted() {
+		logFailure(s.logger, "deleted user login rejected", nil,
+			"operation", "login",
+			"email", email,
+			"user_id", foundUser.ID,
+		)
+		return nil, ErrUserAlreadyDeleted
+	}
 
 	logSuccess(s.logger,
 		"operation", "login",
@@ -380,12 +393,54 @@ func (s *service) Login(ctx context.Context, email string, password string) (*Us
 	return foundUser, nil
 }
 
+func (s *service) Restore(ctx context.Context, email string, password string) (*User, error) {
+	var restoredUser *User
+	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
+		foundUser, err := s.userRepo.GetByEmail(ctx, email)
+		if err != nil {
+			return ErrInvalidCredentials
+		}
+		if !foundUser.Password.Compare(password) {
+			return ErrInvalidCredentials
+		}
+		if !foundUser.IsDeleted() {
+			restoredUser = foundUser
+			return nil
+		}
+
+		user, err := s.userRepo.Restore(ctx, foundUser.ID)
+		if err != nil {
+			return mapUpdateError(err)
+		}
+		restoredUser = user
+		return nil
+	})
+
+	if err != nil {
+		return nil, logError(err, s.logger,
+			"operation", "restore",
+			"email", email,
+		)
+	}
+
+	logSuccess(s.logger,
+		"operation", "restore",
+		"user_id", restoredUser.ID,
+		"email", restoredUser.Email,
+	)
+
+	return restoredUser, nil
+}
+
 func (s *service) GetByID(ctx context.Context, id uuid.UUID) (*User, error) {
 	var result *User
 	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
 		user, err := s.userRepo.GetByID(ctx, id)
 		if err != nil {
 			return mapGetError(err)
+		}
+		if user.IsDeleted() {
+			return ErrUserAlreadyDeleted
 		}
 		result = user
 		return nil
@@ -407,6 +462,9 @@ func (s *service) GetProfileByID(ctx context.Context, id uuid.UUID) (*Profile, e
 		foundUser, err := s.userRepo.GetByID(ctx, id)
 		if err != nil {
 			return mapGetError(err)
+		}
+		if foundUser.IsDeleted() {
+			return ErrUserAlreadyDeleted
 		}
 
 		pd, err := s.dataRepo.Get(ctx, foundUser.PersonalDataID)
@@ -495,10 +553,35 @@ func (s *service) ListActiveProfiles(ctx context.Context) ([]*Profile, error) {
 	return result, nil
 }
 
+func (s *service) ListProfiles(ctx context.Context) ([]*Profile, error) {
+	profiles, err := s.userRepo.ListProfiles(ctx)
+	if err != nil {
+		err = mapGetError(err)
+		logFailure(s.logger, "list profiles operation failed", err,
+			"operation", "list_profiles",
+		)
+		return nil, err
+	}
+
+	result := make([]*Profile, 0, len(profiles))
+	for _, profile := range profiles {
+		if profile == nil {
+			continue
+		}
+		result = append(result, &Profile{
+			User:         profile.User,
+			PersonalData: profile.PersonalData,
+			TeamName:     profile.TeamName,
+		})
+	}
+
+	return result, nil
+}
+
 func (s *service) List(ctx context.Context) ([]*User, error) {
 	var result []*User
 	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
-		user, err := s.userRepo.ListActive(ctx)
+		user, err := s.userRepo.List(ctx)
 		if err != nil {
 			return mapGetError(err)
 		}
@@ -522,9 +605,12 @@ func (s *service) DeleteByID(ctx context.Context, actor auth.Actor, id uuid.UUID
 			return ErrOnlyManagersCanModify
 		}
 
-		_, err := s.userRepo.GetByID(ctx, id)
+		foundUser, err := s.userRepo.GetByID(ctx, id)
 		if err != nil {
 			return mapGetError(err)
+		}
+		if foundUser.IsDeleted() {
+			return ErrUserAlreadyDeleted
 		}
 
 		err = s.userRepo.Delete(ctx, id)
@@ -590,7 +676,7 @@ func mapUpdateError(err error) error {
 		return common_errors.ErrNotFound
 
 	case errors.Is(err, common_errors.ErrConflict):
-		return ErrConflict
+		return ErrUserAlreadyDeleted
 
 	case errors.Is(err, common_errors.ErrInvalidArgument):
 		return ErrInvalidInput

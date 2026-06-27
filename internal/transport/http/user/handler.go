@@ -1,6 +1,7 @@
 package user
 
 import (
+	"errors"
 	"net/http"
 	"net/url"
 	user_application "task_tracker/internal/application/user"
@@ -19,8 +20,11 @@ type UserHandler interface {
 	ShowCreateForm(c *gin.Context)
 	ShowAuthSuccess(c *gin.Context)
 	ShowCabinet(c *gin.Context)
+	ShowAdmin(c *gin.Context)
 	SubmitCreateForm(c *gin.Context)
 	SubmitLoginForm(c *gin.Context)
+	SubmitRestoreForm(c *gin.Context)
+	SubmitTeamChangeRequest(c *gin.Context)
 	Logout(c *gin.Context)
 	UpdateCabinet(c *gin.Context)
 	DeleteCabinet(c *gin.Context)
@@ -76,16 +80,19 @@ func authMessage(value string) string {
 
 func (h *handler) ShowAuthSuccess(c *gin.Context) {
 	message := "Успешная регистрация"
+	redirectToLogin := false
 	switch c.Query("type") {
 	case "login":
 		message = "Успешный логин"
 	case "delete":
 		message = "Пользователь удален"
+		redirectToLogin = true
 	}
 
 	c.HTML(http.StatusOK, "user_auth_success_page", gin.H{
-		"title":   message,
-		"message": message,
+		"title":             message,
+		"message":           message,
+		"redirect_to_login": redirectToLogin,
 	})
 }
 
@@ -133,6 +140,13 @@ func (h *handler) SubmitLoginForm(c *gin.Context) {
 	ctx := c.Request.Context()
 	loggedUser, err := h.service.Login(ctx, input.Email, input.Password)
 	if err != nil {
+		if errors.Is(err, user_application.ErrUserAlreadyDeleted) {
+			c.HTML(http.StatusOK, "user_restore_prompt", gin.H{
+				"email":    input.Email,
+				"password": input.Password,
+			})
+			return
+		}
 		c.HTML(http.StatusOK, "user_create_result", gin.H{
 			"error": mapUIError(err),
 		})
@@ -151,6 +165,37 @@ func (h *handler) SubmitLoginForm(c *gin.Context) {
 	}
 
 	redirectUI(c, cabinetURL(loggedUser.ID.String(), "login", ""), http.StatusOK)
+}
+
+func (h *handler) SubmitRestoreForm(c *gin.Context) {
+	input, err := NewLoginFormRequest(c.Request)
+	if err != nil {
+		c.HTML(http.StatusOK, "user_create_result", gin.H{
+			"error": mapUIFormError(err),
+		})
+		return
+	}
+
+	restoredUser, err := h.service.Restore(c.Request.Context(), input.Email, input.Password)
+	if err != nil {
+		c.HTML(http.StatusOK, "user_create_result", gin.H{
+			"error": mapUIError(err),
+		})
+		return
+	}
+
+	if h.tokens != nil {
+		token, claims, err := h.tokens.GenerateAccessToken(restoredUser.ID, restoredUser.Role, restoredUser.TeamID)
+		if err != nil {
+			c.HTML(http.StatusOK, "user_create_result", gin.H{
+				"error": "Не удалось создать сессию",
+			})
+			return
+		}
+		setAccessTokenCookie(c, token, claims.ExpiresAtTime())
+	}
+
+	redirectUI(c, cabinetURL(restoredUser.ID.String(), "restored", ""), http.StatusOK)
 }
 
 func redirectUI(c *gin.Context, location string, status int) {
@@ -260,6 +305,61 @@ func (h *handler) ShowCabinet(c *gin.Context) {
 	}
 
 	renderCabinet(c, profile, cabinetMessage(c.Query("message")), c.Query("error"))
+}
+
+func (h *handler) ShowAdmin(c *gin.Context) {
+	actor, ok := middleware.GetActor(c)
+	if !ok {
+		c.Redirect(http.StatusSeeOther, "/ui/users/create?auth=required")
+		return
+	}
+	if actor.Role != valueobjects.Admin {
+		c.HTML(http.StatusForbidden, "user_auth_success_page", gin.H{
+			"title": "Ошибка",
+			"error": common_errors.ErrPermissionDenied.Error(),
+		})
+		return
+	}
+
+	c.HTML(http.StatusOK, "user_admin_page", gin.H{
+		"title":      "Администрирование",
+		"actor_id":   actor.ID.String(),
+		"actor_role": string(actor.Role),
+	})
+}
+
+func (h *handler) SubmitTeamChangeRequest(c *gin.Context) {
+	actor, ok := middleware.GetActor(c)
+	if !ok {
+		c.HTML(http.StatusUnauthorized, "user_create_result", gin.H{
+			"error": common_errors.ErrUnauthorized.Error(),
+		})
+		return
+	}
+
+	if err := c.Request.ParseForm(); err != nil {
+		redirectUI(c, cabinetURL(actor.ID.String(), "", mapUIFormError(errInvalidForm)), http.StatusSeeOther)
+		return
+	}
+
+	userID, err := uuid.Parse(c.PostForm("user_id"))
+	if err != nil {
+		redirectUI(c, cabinetURL(actor.ID.String(), "", mapUIError(user_application.ErrInvalidUserID)), http.StatusSeeOther)
+		return
+	}
+	if actor.ID != userID {
+		c.HTML(http.StatusForbidden, "user_create_result", gin.H{
+			"error": common_errors.ErrPermissionDenied.Error(),
+		})
+		return
+	}
+
+	if c.PostForm("team_id") == "" && c.PostForm("team_name") == "" {
+		redirectUI(c, cabinetURL(userID.String(), "", "Выберите команду для заявки"), http.StatusSeeOther)
+		return
+	}
+
+	redirectUI(c, cabinetURL(userID.String(), "team_request_sent", ""), http.StatusSeeOther)
 }
 
 func (h *handler) UpdateCabinet(c *gin.Context) {
@@ -375,6 +475,10 @@ func cabinetMessage(value string) string {
 		return "Успешный логин"
 	case "updated":
 		return "Данные обновлены"
+	case "restored":
+		return "Пользователь восстановлен"
+	case "team_request_sent":
+		return "Заявка на смену команды отправлена администратору"
 	default:
 		return ""
 	}
@@ -563,7 +667,7 @@ func (h *handler) ListActive(c *gin.Context) {
 
 func (h *handler) List(c *gin.Context) {
 	ctx := c.Request.Context()
-	users, err := h.service.ListActiveProfiles(ctx)
+	users, err := h.service.ListProfiles(ctx)
 	if err != nil {
 		status, msg := mapError(err)
 		c.JSON(status, gin.H{

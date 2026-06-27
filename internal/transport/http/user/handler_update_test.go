@@ -61,6 +61,10 @@ func (s *fakeUserService) Login(ctx context.Context, email string, password stri
 	return nil, nil
 }
 
+func (s *fakeUserService) Restore(ctx context.Context, email string, password string) (*userApplication.User, error) {
+	return nil, nil
+}
+
 func (s *fakeUserService) GetByID(ctx context.Context, id uuid.UUID) (*userApplication.User, error) {
 	return nil, nil
 }
@@ -74,6 +78,10 @@ func (s *fakeUserService) ListActive(ctx context.Context) ([]*userApplication.Us
 }
 
 func (s *fakeUserService) ListActiveProfiles(ctx context.Context) ([]*userApplication.Profile, error) {
+	return nil, nil
+}
+
+func (s *fakeUserService) ListProfiles(ctx context.Context) ([]*userApplication.Profile, error) {
 	return nil, nil
 }
 

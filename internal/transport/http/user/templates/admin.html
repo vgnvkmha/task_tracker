@@ -1,0 +1,548 @@
+{{ define "user_admin_page" }}
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ .title }}</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --bg-page: #f8fafc;
+      --bg-page-accent: #eef6ff;
+      --bg-surface: #ffffff;
+      --bg-surface-muted: #f1f5f9;
+      --text-primary: #0f172a;
+      --text-secondary: #334155;
+      --text-muted: #64748b;
+      --text-inverse: #ffffff;
+      --border-subtle: #e2e8f0;
+      --border-strong: #cbd5e1;
+      --primary: #1f4f9f;
+      --primary-hover: #183f80;
+      --primary-soft: #eef4ff;
+      --danger: #dc2626;
+      --danger-soft: #fef2f2;
+      --success: #15803d;
+      --success-soft: #ecfdf3;
+      --space-2: 8px;
+      --space-3: 12px;
+      --space-4: 16px;
+      --space-5: 20px;
+      --space-6: 24px;
+      --space-8: 32px;
+      --radius-md: 8px;
+      --radius-xl: 16px;
+      --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+      --shadow-md: 0 14px 32px rgba(15, 23, 42, 0.08);
+      --control-height: 40px;
+      --transition: 160ms ease;
+      font-family: var(--font-sans);
+      background: var(--bg-page);
+      color: var(--text-primary);
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at top left, rgba(37, 99, 235, 0.08), transparent 34vw),
+        linear-gradient(180deg, var(--bg-page-accent) 0, var(--bg-page) 280px);
+    }
+
+    main {
+      width: min(1240px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: var(--space-8) 0;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: var(--space-5);
+      margin-bottom: var(--space-6);
+    }
+
+    h1 {
+      margin: 0 0 var(--space-2);
+      font-size: clamp(30px, 4vw, 44px);
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+
+    .meta {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 16px;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-3);
+      align-items: center;
+    }
+
+    button,
+    a.button {
+      min-height: var(--control-height);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 0;
+      border-radius: var(--radius-md);
+      padding: 0 var(--space-4);
+      font: inherit;
+      font-weight: 700;
+      color: var(--text-inverse);
+      background: var(--primary);
+      text-decoration: none;
+      cursor: pointer;
+      box-shadow: var(--shadow-sm);
+      transition: transform var(--transition), box-shadow var(--transition), background var(--transition), color var(--transition);
+    }
+
+    button:hover,
+    a.button:hover {
+      background: var(--primary-hover);
+      box-shadow: var(--shadow-md);
+      transform: translateY(-1px);
+    }
+
+    button:disabled {
+      color: var(--text-muted);
+      background: var(--bg-surface-muted);
+      box-shadow: none;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .secondary {
+      color: var(--primary);
+      border: 1px solid rgba(37, 99, 235, 0.22);
+      background: var(--primary-soft);
+      box-shadow: none;
+    }
+
+    .secondary:hover {
+      color: var(--primary-hover);
+      background: #dbeafe;
+    }
+
+    section {
+      overflow: hidden;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-xl);
+      background: rgba(255, 255, 255, 0.94);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 1120px;
+    }
+
+    th,
+    td {
+      padding: var(--space-3);
+      border-bottom: 1px solid var(--border-subtle);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--text-muted);
+      background: var(--bg-surface-muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    input,
+    select {
+      width: 100%;
+      min-height: var(--control-height);
+      box-sizing: border-box;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-md);
+      padding: 0 10px;
+      font: inherit;
+      color: var(--text-primary);
+      background: var(--bg-surface);
+    }
+
+    input:focus,
+    select:focus {
+      outline: 0;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+    }
+
+    .message {
+      margin-bottom: var(--space-5);
+      padding: var(--space-3) var(--space-4);
+      border-radius: 12px;
+      border: 1px solid rgba(21, 128, 61, 0.18);
+      background: var(--success-soft);
+      color: var(--success);
+      box-shadow: var(--shadow-sm);
+      font-weight: 650;
+    }
+
+    .message.error {
+      border-color: rgba(220, 38, 38, 0.18);
+      background: var(--danger-soft);
+      color: var(--danger);
+    }
+
+    .empty {
+      padding: var(--space-6);
+      color: var(--text-muted);
+    }
+
+    .pagination {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-4);
+      border-top: 1px solid var(--border-subtle);
+      background: rgba(248, 250, 252, 0.72);
+    }
+
+    .pagination-info {
+      color: var(--text-muted);
+      font-size: 14px;
+      font-weight: 650;
+    }
+
+    .pagination-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+      align-items: center;
+    }
+
+    .page-button {
+      min-width: var(--control-height);
+      padding: 0 var(--space-3);
+      color: var(--primary);
+      border: 1px solid rgba(37, 99, 235, 0.22);
+      background: var(--primary-soft);
+      box-shadow: none;
+    }
+
+    .page-button.is-active {
+      color: var(--text-inverse);
+      border-color: var(--primary);
+      background: var(--primary);
+    }
+
+    @media (max-width: 760px) {
+      main {
+        width: min(100% - 24px, 980px);
+        padding: var(--space-6) 0;
+      }
+
+      header {
+        display: block;
+      }
+
+      header .actions {
+        margin-top: var(--space-3);
+      }
+
+      .pagination {
+        align-items: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main data-admin-app>
+    <header>
+      <div>
+        <h1>Администрирование</h1>
+        <p class="meta">Пользователи и их личные данные</p>
+      </div>
+      <div class="actions">
+        <a class="button secondary" href="/ui/tasks">Задачи</a>
+        <a class="button secondary" href="/ui/users/cabinet">Личный кабинет</a>
+      </div>
+    </header>
+
+    <div class="message" data-admin-message hidden></div>
+    <div class="message error" data-admin-error hidden></div>
+
+    <section>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Почта</th>
+              <th>Имя</th>
+              <th>Фамилия</th>
+              <th>Дата рождения</th>
+              <th>Роль</th>
+              <th>Команда</th>
+              <th>Статус</th>
+              <th>Действие</th>
+            </tr>
+          </thead>
+          <tbody data-users-body>
+            <tr>
+              <td colspan="8" class="empty">Загрузка пользователей...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pagination" data-pagination hidden>
+        <div class="pagination-info" data-pagination-info></div>
+        <div class="pagination-controls" data-pagination-controls></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const usersBody = document.querySelector("[data-users-body]");
+    const messageNode = document.querySelector("[data-admin-message]");
+    const errorNode = document.querySelector("[data-admin-error]");
+    const pagination = document.querySelector("[data-pagination]");
+    const paginationInfo = document.querySelector("[data-pagination-info]");
+    const paginationControls = document.querySelector("[data-pagination-controls]");
+    const pageSize = 10;
+    let teams = [];
+    let users = [];
+    let currentPage = 1;
+
+    const errorMessages = new Map([
+      ["invalid birth_date", "Некорректная дата рождения."],
+      ["invalid first_name", "Имя не должно содержать цифры."],
+      ["invalid last_name", "Фамилия не должна содержать цифры."],
+      ["invalid email", "Введите корректный email."],
+      ["invalid team_id", "Некорректный идентификатор команды."],
+      ["invalid user_id", "Некорректный идентификатор пользователя."],
+      ["invalid user input", "Проверьте данные пользователя."],
+      ["manager must have a team", "Для менеджера нужно указать команду."],
+      ["team not found", "Команда не найдена."],
+      ["user not found", "Пользователь не найден."],
+      ["email already used", "Пользователь с такой почтой уже существует."],
+      ["user with this email already exists", "Пользователь с такой почтой уже существует."],
+      ["forbidden", "Недостаточно прав для выполнения действия."],
+    ]);
+
+    const readableError = (message) => errorMessages.get(message) || message || "Не удалось выполнить действие.";
+
+    const showStatus = (message, isError = false) => {
+      const target = isError ? errorNode : messageNode;
+      const other = isError ? messageNode : errorNode;
+      other.hidden = true;
+      target.textContent = message;
+      target.hidden = false;
+    };
+
+    const requestJSON = async (url, options = {}) => {
+      const response = await fetch(url, {
+        credentials: "same-origin",
+        headers: {
+          "Accept": "application/json",
+          ...(options.body ? { "Content-Type": "application/json" } : {}),
+          ...(options.headers || {}),
+        },
+        ...options,
+      });
+
+      if (response.status === 401) {
+        window.location.replace("/ui/users/create?auth=required");
+        throw new Error("unauthorized");
+      }
+
+      let data = {};
+      try {
+        data = await response.json();
+      } catch (error) {
+        data = {};
+      }
+
+      if (!response.ok) {
+        throw new Error(readableError(data.error));
+      }
+      return data;
+    };
+
+    const escapeHTML = (value) => String(value || "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+
+    const roleOptions = (role) => ["admin", "captain", "user", "guest"]
+      .map((item) => `<option value="${item}" ${item === role ? "selected" : ""}>${item}</option>`)
+      .join("");
+
+    const teamOptions = (teamId) => {
+      const options = ['<option value="">Без команды</option>'];
+      teams.forEach((team) => {
+        if (team.id && team.name) {
+          options.push(`<option value="${escapeHTML(team.id)}" ${team.id === teamId ? "selected" : ""}>${escapeHTML(team.name)}</option>`);
+        }
+      });
+      return options.join("");
+    };
+
+    const renderPagination = () => {
+      if (!pagination || !paginationInfo || !paginationControls) {
+        return;
+      }
+
+      const pageCount = Math.max(1, Math.ceil(users.length / pageSize));
+      pagination.hidden = users.length <= pageSize;
+      if (users.length === 0) {
+        paginationInfo.textContent = "";
+        paginationControls.innerHTML = "";
+        return;
+      }
+
+      const start = (currentPage - 1) * pageSize + 1;
+      const end = Math.min(currentPage * pageSize, users.length);
+      paginationInfo.textContent = `${start}-${end} из ${users.length}`;
+
+      const pageButtons = [];
+      pageButtons.push(`<button class="page-button" type="button" data-page-action="prev" ${currentPage === 1 ? "disabled" : ""}>Назад</button>`);
+      for (let page = 1; page <= pageCount; page += 1) {
+        pageButtons.push(`<button class="page-button ${page === currentPage ? "is-active" : ""}" type="button" data-page="${page}" ${page === currentPage ? 'aria-current="page"' : ""}>${page}</button>`);
+      }
+      pageButtons.push(`<button class="page-button" type="button" data-page-action="next" ${currentPage === pageCount ? "disabled" : ""}>Вперед</button>`);
+      paginationControls.innerHTML = pageButtons.join("");
+    };
+
+    const renderUsers = () => {
+      if (!users.length) {
+        usersBody.innerHTML = '<tr><td colspan="8" class="empty">Пользователи не найдены.</td></tr>';
+        renderPagination();
+        return;
+      }
+
+      const pageCount = Math.max(1, Math.ceil(users.length / pageSize));
+      currentPage = Math.min(Math.max(currentPage, 1), pageCount);
+      const pageUsers = users.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+      usersBody.innerHTML = pageUsers.map((user) => `
+        <tr data-user-id="${escapeHTML(user.id)}">
+          <td><input name="email" type="email" value="${escapeHTML(user.email)}"></td>
+          <td><input name="first_name" type="text" value="${escapeHTML(user.first_name)}"></td>
+          <td><input name="last_name" type="text" value="${escapeHTML(user.last_name)}"></td>
+          <td><input name="birth_date" type="date" min="1800-01-01" value="${escapeHTML(user.birth_date)}"></td>
+          <td><select name="role">${roleOptions(user.role)}</select></td>
+          <td><select name="team_id">${teamOptions(user.team_id || "")}</select></td>
+          <td>${user.is_deleted ? "Удален" : "Активен"}</td>
+          <td><button type="button" data-save-user ${user.is_deleted ? "disabled" : ""}>Сохранить</button></td>
+        </tr>
+      `).join("");
+      renderPagination();
+    };
+
+    const rowPayload = (row) => {
+      const value = (name) => row.querySelector(`[name="${name}"]`).value.trim();
+      const payload = {
+        user_id: row.dataset.userId,
+        email: value("email"),
+        first_name: value("first_name"),
+        last_name: value("last_name"),
+        role: value("role"),
+      };
+
+      const teamId = value("team_id");
+      if (teamId) {
+        payload.team_id = teamId;
+      }
+
+      const birthDate = value("birth_date");
+      if (birthDate !== "") {
+        payload.birth_date = `${birthDate}T00:00:00Z`;
+      }
+
+      return payload;
+    };
+
+    const loadAdminData = async () => {
+      try {
+        const [teamsData, usersData] = await Promise.all([
+          requestJSON("/team/list"),
+          requestJSON("/user/list"),
+        ]);
+        teams = Array.isArray(teamsData.team) ? teamsData.team : [];
+        users = Array.isArray(usersData.users) ? usersData.users : [];
+        currentPage = 1;
+        renderUsers();
+      } catch (error) {
+        usersBody.innerHTML = '<tr><td colspan="8" class="empty">Не удалось загрузить данные.</td></tr>';
+        showStatus(error.message || "Не удалось загрузить данные.", true);
+      }
+    };
+
+    usersBody.addEventListener("click", async (event) => {
+      const button = event.target.closest("[data-save-user]");
+      if (!button) {
+        return;
+      }
+
+      const row = button.closest("[data-user-id]");
+      button.disabled = true;
+      try {
+        const payload = rowPayload(row);
+        await requestJSON("/user/update", {
+          method: "PATCH",
+          body: JSON.stringify(payload),
+        });
+        users = users.map((user) => user.id === payload.user_id
+          ? {
+              ...user,
+              email: payload.email,
+              first_name: payload.first_name,
+              last_name: payload.last_name,
+              birth_date: payload.birth_date ? payload.birth_date.slice(0, 10) : "",
+              role: payload.role,
+              team_id: payload.team_id || null,
+            }
+          : user);
+        showStatus("Пользователь обновлен.");
+      } catch (error) {
+        showStatus(error.message || "Не удалось обновить пользователя.", true);
+      } finally {
+        button.disabled = false;
+      }
+    });
+
+    paginationControls.addEventListener("click", (event) => {
+      const button = event.target.closest("button");
+      if (!button || button.disabled) {
+        return;
+      }
+
+      const pageCount = Math.max(1, Math.ceil(users.length / pageSize));
+      if (button.dataset.pageAction === "prev") {
+        currentPage -= 1;
+      } else if (button.dataset.pageAction === "next") {
+        currentPage += 1;
+      } else if (button.dataset.page) {
+        currentPage = Number(button.dataset.page);
+      }
+      currentPage = Math.min(Math.max(currentPage, 1), pageCount);
+      renderUsers();
+    });
+
+    loadAdminData();
+  </script>
+</body>
+</html>
+{{ end }}

@@ -230,6 +230,42 @@
       color: var(--danger);
     }
 
+    .restore-card {
+      display: grid;
+      gap: var(--space-4);
+      padding: var(--space-5);
+      border: 1px solid rgba(31, 79, 159, 0.24);
+      border-radius: var(--radius-xl);
+      background: var(--primary-soft);
+      box-shadow: var(--shadow-md);
+    }
+
+    .restore-card p {
+      margin: 0;
+      color: var(--text-secondary);
+      font-weight: 650;
+      line-height: 1.5;
+    }
+
+    .restore-card strong {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--text-primary);
+      font-size: 18px;
+    }
+
+    .restore-card .actions {
+      padding: 0;
+      margin: 0;
+    }
+
+    .restore-card .secondary-action {
+      color: var(--primary);
+      border: 1px solid rgba(37, 99, 235, 0.22);
+      background: var(--bg-surface);
+      box-shadow: none;
+    }
+
     @media (max-width: 720px) {
       main {
         width: min(100% - 24px, 960px);
@@ -305,11 +341,6 @@
         <span>Фамилия <span class="required">*</span></span>
         <input name="last_name" type="text" autocomplete="family-name" pattern="[^0-9]*" required data-required-message="Введите фамилию" data-invalid-message="Фамилия не должна содержать цифры">
         <span class="field-error">Введите фамилию</span>
-      </label>
-      <label>
-        Возраст
-        <input name="age" type="number" min="0" max="255" data-invalid-message="Возраст должен быть числом от 0 до 255">
-        <span class="field-error">Возраст должен быть числом от 0 до 255</span>
       </label>
       <label>
         Дата рождения
@@ -399,11 +430,29 @@
   {{ end }}
 {{ end }}
 
+{{ define "user_restore_prompt" }}
+  <form class="restore-card" hx-post="/ui/users/restore" hx-target="#create-user-result" hx-swap="innerHTML">
+    <input type="hidden" name="email" value="{{ .email }}">
+    <input type="hidden" name="password" value="{{ .password }}">
+    <p>
+      <strong>Пользователь был удален.</strong>
+      Желаете восстановить пользователя и снова войти в аккаунт?
+    </p>
+    <div class="actions">
+      <button type="submit">Восстановить пользователя</button>
+      <button class="secondary-action" type="button" onclick="document.querySelector('#create-user-result').innerHTML = '';">Не восстанавливать</button>
+    </div>
+  </form>
+{{ end }}
+
 {{ define "user_auth_success_page" }}
 <!doctype html>
 <html lang="ru">
 <head>
   <meta charset="utf-8">
+  {{ if .redirect_to_login }}
+    <meta http-equiv="refresh" content="5;url=/ui/users/create">
+  {{ end }}
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ .title }}</title>
   <style>
@@ -458,7 +507,17 @@
 <body>
   <main>
     <h1>{{ if .error }}{{ .error }}{{ else }}{{ .message }}{{ end }}</h1>
+    {{ if .redirect_to_login }}
+      <p>Скоро вы будете перенаправлены.</p>
+    {{ end }}
   </main>
+  {{ if .redirect_to_login }}
+    <script>
+      window.setTimeout(() => {
+        window.location.replace("/ui/users/create");
+      }, 5000);
+    </script>
+  {{ end }}
 </body>
 </html>
 {{ end }}

@@ -170,7 +170,7 @@ func (s *service) Update(ctx context.Context, id uuid.UUID, input *UpdateTeamInp
 			}
 		}
 		if err := domainTeam.ApplyChanges(input.Name, input.Timezone, input.LeaderID, input.IsActive); err != nil {
-			return err
+			return mapDomainValidationError(err)
 		}
 		team, err := s.teamRepo.Update(ctx, id, *domainTeam)
 		if err != nil {
@@ -240,7 +240,7 @@ func (s *service) validateLeader(ctx context.Context, leaderID *uuid.UUID, teamN
 		return common_errors.ErrInvalidArgument
 	}
 
-	if !leader.IsActive {
+	if leader.IsDeleted() {
 		return ErrLeaderInactive
 	}
 
@@ -264,6 +264,8 @@ func (s *service) validateLeader(ctx context.Context, leaderID *uuid.UUID, teamN
 
 func mapCreateError(err error) error {
 	switch {
+	case isDomainValidationError(err):
+		return ErrInvalidInput
 	case errors.Is(err, common_errors.ErrPermissionDenied):
 		return ErrPermissionDenied
 	case errors.Is(err, common_errors.ErrAlreadyExists):
@@ -292,6 +294,8 @@ func mapGetError(err error) error {
 
 func mapUpdateError(err error) error {
 	switch {
+	case isDomainValidationError(err):
+		return ErrInvalidInput
 	case errors.Is(err, common_errors.ErrPermissionDenied):
 		return ErrPermissionDenied
 
@@ -307,6 +311,20 @@ func mapUpdateError(err error) error {
 	default:
 		return err
 	}
+}
+
+func mapDomainValidationError(err error) error {
+	if isDomainValidationError(err) {
+		return ErrInvalidInput
+	}
+	return err
+}
+
+func isDomainValidationError(err error) bool {
+	return errors.Is(err, domain_team.ErrEmptyName) ||
+		errors.Is(err, domain_team.ErrNameTooLong) ||
+		errors.Is(err, domain_team.ErrInvalidTZ) ||
+		errors.Is(err, domain_team.ErrInvalidLeaderID)
 }
 
 func mapDeleteError(err error) error {

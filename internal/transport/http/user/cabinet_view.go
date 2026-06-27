@@ -18,6 +18,7 @@ type CabinetView struct {
 	Age         string
 	BirthDate   string
 	IsActive    bool
+	IsDeleted   bool
 }
 
 func NewCabinetView(profile *userApplication.Profile) CabinetView {
@@ -30,6 +31,7 @@ func NewCabinetView(profile *userApplication.Profile) CabinetView {
 		FirstName:   profile.PersonalData.FirstName,
 		LastName:    profile.PersonalData.LastName,
 		IsActive:    profile.User.IsActive,
+		IsDeleted:   profile.User.IsDeleted(),
 	}
 
 	if profile.User.TeamID != nil {

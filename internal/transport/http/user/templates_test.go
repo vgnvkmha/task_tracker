@@ -41,10 +41,11 @@ func TestCabinetDeleteActionAvailability(t *testing.T) {
 			err := tmpl.ExecuteTemplate(&output, "user_cabinet_page", map[string]any{
 				"title": "Личный кабинет",
 				"profile": CabinetView{
-					ID:       "user-id",
-					Email:    "user@example.com",
-					Role:     "user",
-					IsActive: tt.isActive,
+					ID:        "user-id",
+					Email:     "user@example.com",
+					Role:      "user",
+					IsActive:  tt.isActive,
+					IsDeleted: !tt.isActive,
 				},
 			})
 			if err != nil {

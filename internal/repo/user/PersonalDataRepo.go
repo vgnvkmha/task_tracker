@@ -3,6 +3,7 @@ package user
 import (
 	"context"
 	"database/sql"
+	"task_tracker/internal/common_errors"
 	personaldata "task_tracker/internal/domain/personal_data"
 	"task_tracker/internal/infrastracture/db"
 	"task_tracker/internal/repo/dberrors"
@@ -107,9 +108,12 @@ func (r *personalDataRepo) Update(ctx context.Context, data PersonalData) (Perso
 		WHERE id = $5
 	`
 
-	var err error
+	var (
+		result sql.Result
+		err    error
+	)
 	if tx, ok := db.GetTx(ctx); ok {
-		_, err = tx.ExecContext(
+		result, err = tx.ExecContext(
 			ctx,
 			query,
 			data.FirstName,
@@ -119,7 +123,7 @@ func (r *personalDataRepo) Update(ctx context.Context, data PersonalData) (Perso
 			data.Id,
 		)
 	} else {
-		_, err = r.db.ExecContext(
+		result, err = r.db.ExecContext(
 			ctx,
 			query,
 			data.FirstName,
@@ -132,6 +136,9 @@ func (r *personalDataRepo) Update(ctx context.Context, data PersonalData) (Perso
 
 	if err != nil {
 		return PersonalData{}, dberrors.Map(err)
+	}
+	if rows, err := result.RowsAffected(); err == nil && rows == 0 {
+		return PersonalData{}, common_errors.ErrNotFound
 	}
 
 	return data, nil

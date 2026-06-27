@@ -308,6 +308,7 @@ func (h *handler) ShowTasks(ctx *gin.Context) {
 		"actor_id":   actor.ID.String(),
 		"actor_role": string(actor.Role),
 		"team_id":    actorTeamID(actor),
+		"is_admin":   string(actor.Role) == "admin",
 		"message":    taskMessage(ctx.Query("message")),
 		"error":      taskError(ctx.Query("error")),
 	})

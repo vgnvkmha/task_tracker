@@ -14,11 +14,14 @@ func RegisterRoutes(r *gin.Engine, h UserHandler, tokens *infraauth.JWTService, 
 	ui.GET("/success", h.ShowAuthSuccess)
 	ui.POST("", h.SubmitCreateForm)
 	ui.GET("/login", h.SubmitLoginForm)
+	ui.POST("/restore", h.SubmitRestoreForm)
 	ui.POST("/logout", h.Logout)
 
 	uiAuth := ui.Group("", middleware.UIActorMiddleware(tokens))
 	uiAuth.GET("/cabinet", h.ShowCabinet)
+	uiAuth.GET("/admin", h.ShowAdmin)
 	uiAuth.POST("/cabinet/update", h.UpdateCabinet)
+	uiAuth.POST("/cabinet/team-change-request", h.SubmitTeamChangeRequest)
 	uiAuth.POST("/cabinet/delete", h.DeleteCabinet)
 
 	user := r.Group("/user", middleware.ActorMiddleware(tokens, legacyHeadersEnabled))

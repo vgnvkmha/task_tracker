@@ -108,17 +108,60 @@
       padding: var(--space-5);
     }
 
+    .profile-card {
+      display: grid;
+      gap: var(--space-6);
+    }
+
+    .profile-section {
+      display: grid;
+      gap: var(--space-4);
+    }
+
+    .profile-section + .profile-section {
+      padding-top: var(--space-6);
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    .section-heading {
+      display: grid;
+      gap: 6px;
+    }
+
     h2 {
-      margin: 0 0 var(--space-5);
+      margin: 0;
       font-size: 20px;
       letter-spacing: 0;
       color: var(--text-primary);
+    }
+
+    .section-description {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 14px;
+      line-height: 1.45;
     }
 
     form {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: var(--space-5);
+    }
+
+    .profile-form,
+    .team-request-form {
+      margin: 0;
+    }
+
+    .team-request-form {
+      grid-template-columns: minmax(220px, 1fr) auto;
+      align-items: end;
+      gap: var(--space-3);
+    }
+
+    .team-request-form .actions {
+      grid-column: auto;
+      margin: 0 0 18px;
     }
 
     label {
@@ -130,7 +173,10 @@
       font-weight: 700;
     }
 
-    input {
+    input,
+    select {
+      width: 100%;
+      box-sizing: border-box;
       min-height: var(--control-height);
       border: 1px solid var(--border-strong);
       border-radius: var(--radius-md);
@@ -141,7 +187,8 @@
       transition: border-color var(--transition), box-shadow var(--transition), background var(--transition);
     }
 
-    input:focus {
+    input:focus,
+    select:focus {
       outline: 0;
       border-color: var(--primary);
       box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
@@ -157,7 +204,8 @@
       color: var(--danger);
     }
 
-    label.has-error input {
+    label.has-error input,
+    label.has-error select {
       border-color: var(--danger);
       background: var(--danger-soft);
     }
@@ -212,6 +260,10 @@
       color: var(--primary-hover);
       border-color: rgba(37, 99, 235, 0.36);
       background: #dbeafe;
+    }
+
+    .team-request-form .secondary {
+      background: var(--bg-surface);
     }
 
     .logout-form {
@@ -296,6 +348,12 @@
       transform: translateY(0);
     }
 
+    .account-card {
+      display: flex;
+      flex-direction: column;
+      min-height: 100%;
+    }
+
     dl {
       display: grid;
       gap: 0;
@@ -316,6 +374,13 @@
       overflow-wrap: anywhere;
     }
 
+    .account-id {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 13px;
+      line-height: 1.45;
+      word-break: break-word;
+    }
+
     dl > div {
       padding: var(--space-4) 0;
       border-bottom: 1px solid var(--border-subtle);
@@ -328,6 +393,8 @@
     .delete-form {
       display: block;
       margin-top: var(--space-5);
+      padding-top: var(--space-5);
+      border-top: 1px solid var(--border-subtle);
     }
 
     @media (max-width: 760px) {
@@ -353,6 +420,21 @@
       form {
         grid-template-columns: 1fr;
       }
+
+      .team-request-form {
+        grid-template-columns: 1fr;
+      }
+
+      .team-request-form .actions {
+        grid-column: 1;
+        margin: 0;
+      }
+
+      .actions button,
+      .actions .button,
+      .team-request-form button {
+        width: 100%;
+      }
     }
   </style>
 </head>
@@ -366,7 +448,7 @@
       <div class="actions">
         <a class="button secondary" href="/ui/tasks">Задачи</a>
         <form class="logout-form" method="post" action="/ui/users/logout" onsubmit="return confirm('Выйти из аккаунта?');">
-          <button type="submit">Выйти</button>
+          <button class="secondary" type="submit">Выйти</button>
         </form>
       </div>
     </header>
@@ -379,67 +461,93 @@
     {{ end }}
 
     <div class="layout">
-      <section>
-        <h2>Профиль</h2>
-        <form method="post" action="/ui/users/cabinet/update">
-          <input type="hidden" name="user_id" value="{{ .profile.ID }}">
-
-          <label>
-            Электронная почта
-            <input name="email" type="email" autocomplete="email" value="{{ .profile.Email }}">
-            <span class="field-error">Введите корректную электронную почту</span>
-          </label>
-
-          <label>
-            Новый пароль
-            <input name="password" type="password" autocomplete="new-password" placeholder="Оставьте пустым, если не меняете">
-            <span class="field-error">Пароль слишком слабый</span>
-          </label>
-
-          {{ if .profile.CanEditTeam }}
-            <label>
-              Команда
-              <input name="team_name" type="text" autocomplete="organization" value="{{ .profile.TeamName }}" placeholder="Название команды">
-              <span class="field-error">Введите название команды</span>
-            </label>
-          {{ end }}
-
-          <label>
-            Имя
-            <input name="first_name" type="text" autocomplete="given-name" pattern="[^0-9]*" value="{{ .profile.FirstName }}" data-invalid-message="Имя не должно содержать цифры">
-            <span class="field-error">Имя не должно содержать цифры</span>
-          </label>
-
-          <label>
-            Фамилия
-            <input name="last_name" type="text" autocomplete="family-name" pattern="[^0-9]*" value="{{ .profile.LastName }}" data-invalid-message="Фамилия не должна содержать цифры">
-            <span class="field-error">Фамилия не должна содержать цифры</span>
-          </label>
-
-          <label>
-            Возраст
-            <input name="age" type="number" min="0" max="255" value="{{ .profile.Age }}" data-invalid-message="Возраст должен быть числом от 0 до 255">
-            <span class="field-error">Возраст должен быть числом от 0 до 255</span>
-          </label>
-
-          <label>
-            Дата рождения
-            <input name="birth_date" type="date" min="1800-01-01" value="{{ .profile.BirthDate }}" data-invalid-message="Дата рождения не может быть раньше 01.01.1800">
-            <span class="field-error">Дата рождения не может быть раньше 01.01.1800</span>
-          </label>
-
-          <div class="actions">
-            <button type="submit">Сохранить изменения</button>
+      <section class="profile-card">
+        <div class="profile-section">
+          <div class="section-heading">
+            <h2>Данные профиля</h2>
+            <p class="section-description">Обновите контактные данные и персональную информацию аккаунта.</p>
           </div>
-        </form>
+
+          <form class="profile-form" method="post" action="/ui/users/cabinet/update">
+            <input type="hidden" name="user_id" value="{{ .profile.ID }}">
+
+            <label>
+              Электронная почта
+              <input name="email" type="email" autocomplete="email" value="{{ .profile.Email }}">
+              <span class="field-error">Введите корректную электронную почту</span>
+            </label>
+
+            <label>
+              Новый пароль
+              <input name="password" type="password" autocomplete="new-password" placeholder="Оставьте пустым, если не меняете">
+              <span class="field-error">Пароль слишком слабый</span>
+            </label>
+
+            {{ if .profile.CanEditTeam }}
+              <label>
+                Команда
+                <input name="team_name" type="text" autocomplete="organization" value="{{ .profile.TeamName }}" placeholder="Название команды">
+                <span class="field-error">Введите название команды</span>
+              </label>
+            {{ end }}
+
+            <label>
+              Имя
+              <input name="first_name" type="text" autocomplete="given-name" pattern="[^0-9]*" value="{{ .profile.FirstName }}" data-invalid-message="Имя не должно содержать цифры">
+              <span class="field-error">Имя не должно содержать цифры</span>
+            </label>
+
+            <label>
+              Фамилия
+              <input name="last_name" type="text" autocomplete="family-name" pattern="[^0-9]*" value="{{ .profile.LastName }}" data-invalid-message="Фамилия не должна содержать цифры">
+              <span class="field-error">Фамилия не должна содержать цифры</span>
+            </label>
+
+            <label>
+              Дата рождения
+              <input name="birth_date" type="date" min="1800-01-01" value="{{ .profile.BirthDate }}" data-invalid-message="Дата рождения не может быть раньше 01.01.1800">
+              <span class="field-error">Дата рождения не может быть раньше 01.01.1800</span>
+            </label>
+
+            <div class="actions">
+              <button type="submit">Сохранить изменения</button>
+            </div>
+          </form>
+        </div>
+
+        {{ if not .profile.CanEditTeam }}
+          <div class="profile-section">
+            <div class="section-heading">
+              <h2>Заявка в команду</h2>
+              <p class="section-description">Выберите команду, чтобы отправить заявку на вступление.</p>
+            </div>
+
+            <form class="team-request-form" method="post" action="/ui/users/cabinet/team-change-request">
+              <input type="hidden" name="user_id" value="{{ .profile.ID }}">
+              <input type="hidden" name="team_name" data-team-request-name value="">
+
+              <label>
+                Выбор команды
+                <select name="team_id" data-team-request-select>
+                  <option value="">Загрузка команд...</option>
+                </select>
+                <span class="field-error">Выберите команду</span>
+              </label>
+
+              <div class="actions">
+                <button class="secondary" type="submit">Отправить заявку</button>
+              </div>
+            </form>
+          </div>
+        {{ end }}
       </section>
 
-      <aside>
+      <aside class="account-card">
         <h2>Аккаунт</h2>
         <dl>
           <div>
             <dt>Идентификатор</dt>
-            <dd>{{ .profile.ID }}</dd>
+            <dd class="account-id">{{ .profile.ID }}</dd>
           </div>
           <div>
             <dt>Роль</dt>
@@ -451,13 +559,13 @@
           </div>
           <div>
             <dt>Статус</dt>
-            <dd>{{ if .profile.IsActive }}Активен{{ else }}Удален{{ end }}</dd>
+            <dd>{{ if .profile.IsDeleted }}Удален{{ else }}Активен{{ end }}</dd>
           </div>
         </dl>
 
         <form class="delete-form" method="post" action="/ui/users/cabinet/delete" onsubmit="return confirm('Удалить пользователя?');">
           <input type="hidden" name="user_id" value="{{ .profile.ID }}">
-          {{ if .profile.IsActive }}
+          {{ if not .profile.IsDeleted }}
             <button class="danger" type="submit">Удалить пользователя</button>
           {{ else }}
             <button class="danger unavailable" type="button" aria-disabled="true" data-unavailable-action="Пользователь уже удален.">Удалить пользователя</button>
@@ -565,6 +673,43 @@
         showToast(button.dataset.unavailableAction);
       });
     });
+
+    const teamRequestSelect = document.querySelector("[data-team-request-select]");
+    const teamRequestName = document.querySelector("[data-team-request-name]");
+    if (teamRequestSelect) {
+      fetch("/team/list", {
+        credentials: "same-origin",
+        headers: { "Accept": "application/json" },
+      })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error("teams");
+          }
+          return response.json();
+        })
+        .then((data) => {
+          const teams = Array.isArray(data.team) ? data.team : [];
+          teamRequestSelect.innerHTML = '<option value="">Выберите команду</option>';
+          teams.forEach((team) => {
+            if (team.id && team.name) {
+              teamRequestSelect.append(new Option(team.name, team.id));
+            }
+          });
+          if (teams.length === 0) {
+            teamRequestSelect.innerHTML = '<option value="">Команды не найдены</option>';
+          }
+        })
+        .catch(() => {
+          teamRequestSelect.innerHTML = '<option value="">Не удалось загрузить команды</option>';
+          showToast("Не удалось загрузить команды.");
+        });
+
+      teamRequestSelect.addEventListener("change", () => {
+        if (teamRequestName) {
+          teamRequestName.value = teamRequestSelect.selectedOptions[0] ? teamRequestSelect.selectedOptions[0].textContent : "";
+        }
+      });
+    }
   </script>
 </body>
 </html>

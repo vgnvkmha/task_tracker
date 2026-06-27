@@ -64,7 +64,7 @@ func (r *fakeUserRepo) GetByID(ctx context.Context, id uuid.UUID) (*userRepo.Use
 func (r *fakeUserRepo) ListActive(ctx context.Context) ([]*userRepo.User, error) {
 	var users []*userRepo.User
 	for _, user := range r.users {
-		if user.IsActive {
+		if !user.IsDeleted() {
 			users = append(users, user)
 		}
 	}
@@ -74,12 +74,23 @@ func (r *fakeUserRepo) ListActive(ctx context.Context) ([]*userRepo.User, error)
 func (r *fakeUserRepo) ListActiveProfiles(ctx context.Context) ([]*userRepo.ActiveUserProfile, error) {
 	var profiles []*userRepo.ActiveUserProfile
 	for _, user := range r.users {
-		if user.IsActive {
+		if !user.IsDeleted() {
 			profiles = append(profiles, &userRepo.ActiveUserProfile{
 				User:         user,
 				PersonalData: personaldata.PersonalData{Id: user.PersonalDataID},
 			})
 		}
+	}
+	return profiles, nil
+}
+
+func (r *fakeUserRepo) ListProfiles(ctx context.Context) ([]*userRepo.ActiveUserProfile, error) {
+	var profiles []*userRepo.ActiveUserProfile
+	for _, user := range r.users {
+		profiles = append(profiles, &userRepo.ActiveUserProfile{
+			User:         user,
+			PersonalData: personaldata.PersonalData{Id: user.PersonalDataID},
+		})
 	}
 	return profiles, nil
 }
@@ -100,6 +111,17 @@ func (r *fakeUserRepo) Update(ctx context.Context, id uuid.UUID, user userRepo.U
 	r.updated = &user
 	r.users[id] = &user
 	return &user, nil
+}
+
+func (r *fakeUserRepo) Restore(ctx context.Context, id uuid.UUID) (*userRepo.User, error) {
+	user, ok := r.users[id]
+	if !ok {
+		return nil, common_errors.ErrNotFound
+	}
+	user.IsActive = true
+	user.DeletedAt = nil
+	r.updated = user
+	return user, nil
 }
 
 func (r *fakeUserRepo) Delete(ctx context.Context, id uuid.UUID) error {
@@ -386,6 +408,69 @@ func TestServiceUpdateRejectsManagerWithoutTeam(t *testing.T) {
 	}
 	if users.updated != nil {
 		t.Fatal("user repo Update should not be called")
+	}
+}
+
+func TestServiceUpdateRejectsDeletedUser(t *testing.T) {
+	svc, users, data, _ := newUpdateTestService()
+	existing := addUserFixture(t, users, data, nil, valueobjects.User)
+	deletedAt := time.Now()
+	existing.DeletedAt = &deletedAt
+
+	firstName := "Deleted"
+	updated, err := svc.Update(context.Background(), managerActor(), UpdateUserInput{
+		UserID:    existing.ID,
+		FirstName: &firstName,
+	})
+	if !errors.Is(err, ErrUserAlreadyDeleted) {
+		t.Fatalf("Update error = %v, want ErrUserAlreadyDeleted", err)
+	}
+	if updated != nil {
+		t.Fatalf("updated = %#v, want nil", updated)
+	}
+	if data.updated != nil {
+		t.Fatal("personal data should not be updated")
+	}
+	if users.updated != nil {
+		t.Fatal("user repo Update should not be called")
+	}
+}
+
+func TestServiceRestoreReactivatesDeletedUserAfterPasswordCheck(t *testing.T) {
+	svc, users, data, _ := newUpdateTestService()
+	existing := addUserFixture(t, users, data, nil, valueobjects.User)
+	deletedAt := time.Now()
+	existing.IsActive = false
+	existing.DeletedAt = &deletedAt
+
+	restored, err := svc.Restore(context.Background(), string(existing.Email), "Strong1!")
+	if err != nil {
+		t.Fatalf("Restore returned error: %v", err)
+	}
+	if restored.IsDeleted() {
+		t.Fatalf("restored user is still deleted: %#v", restored)
+	}
+	if users.updated == nil || users.updated.ID != existing.ID {
+		t.Fatal("user repo Restore was not called")
+	}
+}
+
+func TestServiceRestoreRejectsInvalidPassword(t *testing.T) {
+	svc, users, data, _ := newUpdateTestService()
+	existing := addUserFixture(t, users, data, nil, valueobjects.User)
+	deletedAt := time.Now()
+	existing.IsActive = false
+	existing.DeletedAt = &deletedAt
+
+	restored, err := svc.Restore(context.Background(), string(existing.Email), "Wrong1!")
+	if !errors.Is(err, ErrInvalidCredentials) {
+		t.Fatalf("Restore error = %v, want ErrInvalidCredentials", err)
+	}
+	if restored != nil {
+		t.Fatalf("restored = %#v, want nil", restored)
+	}
+	if users.updated != nil {
+		t.Fatal("user repo Restore should not be called")
 	}
 }
 

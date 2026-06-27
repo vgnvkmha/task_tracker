@@ -1,6 +1,8 @@
 package user
 
 import (
+	"time"
+
 	valueobjects "task_tracker/internal/domain/value_objects"
 
 	"github.com/google/uuid"
@@ -14,6 +16,7 @@ type User struct {
 	Role           valueobjects.Role
 	PersonalDataID uuid.UUID
 	IsActive       bool
+	DeletedAt      *time.Time
 }
 
 func New(teamId, personalDataId uuid.UUID, emailRaw, passwordRaw, roleRaw string) (*User, error) {
@@ -57,4 +60,8 @@ func New(teamId, personalDataId uuid.UUID, emailRaw, passwordRaw, roleRaw string
 	}
 
 	return user, nil
+}
+
+func (u User) IsDeleted() bool {
+	return u.DeletedAt != nil || !u.IsActive
 }
