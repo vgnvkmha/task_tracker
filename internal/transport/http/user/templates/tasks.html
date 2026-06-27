@@ -34,6 +34,9 @@
       --success: #15803d;
       --success-soft: #ecfdf3;
       --info-soft: #eef2ff;
+      --disabled-bg: #e2e8f0;
+      --disabled-text: #64748b;
+      --disabled-border: #cbd5e1;
       --space-1: 4px;
       --space-2: 8px;
       --space-3: 12px;
@@ -56,6 +59,7 @@
       --font-lg: 20px;
       --font-xl: 32px;
       --transition: 160ms ease;
+      --toast-transition: 360ms cubic-bezier(0.22, 1, 0.36, 1);
       font-family: var(--font-sans);
       background: var(--bg-page);
       color: var(--text-primary);
@@ -300,6 +304,23 @@
       opacity: 0.62;
     }
 
+    .unavailable {
+      color: var(--disabled-text);
+      border: 1px solid var(--disabled-border);
+      background: var(--disabled-bg);
+      box-shadow: none;
+      cursor: not-allowed;
+      opacity: 1;
+    }
+
+    .unavailable:hover {
+      color: var(--disabled-text);
+      border-color: var(--disabled-border);
+      background: var(--disabled-bg);
+      box-shadow: none;
+      transform: none;
+    }
+
     .compact {
       min-height: 34px;
       padding: 0 var(--space-3);
@@ -335,6 +356,46 @@
 
     .message.error {
       border-color: rgba(220, 38, 38, 0.18);
+      background: var(--danger-soft);
+      color: var(--danger);
+    }
+
+    .toast-stack {
+      position: fixed;
+      right: 24px;
+      bottom: 24px;
+      z-index: 30;
+      width: min(380px, calc(100vw - 32px));
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+      pointer-events: none;
+    }
+
+    .toast {
+      padding: var(--space-3) var(--space-4);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-md);
+      font-weight: 650;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity var(--toast-transition), transform var(--toast-transition);
+    }
+
+    .toast.is-visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .toast.success {
+      border-color: rgba(21, 128, 61, 0.28);
+      background: var(--success-soft);
+      color: var(--success);
+    }
+
+    .toast.error {
+      border-color: rgba(220, 38, 38, 0.24);
       background: var(--danger-soft);
       color: var(--danger);
     }
@@ -1262,7 +1323,7 @@
   </style>
 </head>
 <body>
-  <main id="task-app" data-actor-id="{{ .actor_id }}" data-team-id="{{ .team_id }}">
+  <main id="task-app" data-actor-id="{{ .actor_id }}" data-actor-role="{{ .actor_role }}" data-team-id="{{ .team_id }}">
     <header>
       <div>
         <h1>Задачи</h1>
@@ -1391,6 +1452,7 @@
     <div id="task-drawer"></div>
     <div id="task-modal-root"></div>
   </main>
+  <div class="toast-stack" aria-live="polite" data-toast-stack></div>
   <script>
     window.addEventListener("pageshow", (event) => {
       if (event.persisted) {
@@ -1400,6 +1462,7 @@
 
     const app = document.querySelector("#task-app");
     const actorId = app ? app.dataset.actorId : "";
+    const actorRole = app ? app.dataset.actorRole : "";
     const teamId = app ? app.dataset.teamId : "";
     let boardSelect = document.querySelector("#board-select");
     const teamFilter = document.querySelector("#team-filter");
@@ -1421,6 +1484,7 @@
     const tableEmptyState = document.querySelector("#table-empty-state");
     const taskDrawer = document.querySelector("#task-drawer");
     const taskModalRoot = document.querySelector("#task-modal-root");
+    const toastStack = document.querySelector("[data-toast-stack]");
     const filterButtons = document.querySelectorAll("[data-filter]");
     const filteredEmpty = tableEmptyState;
     const selectedBoardStorageKey = "task_tracker_selected_board_id";
@@ -1442,6 +1506,7 @@
 
     let usersRequest = null;
     const userLoadingText = "Подождите... информация загружается";
+    const managerRoles = new Set(["admin", "captain"]);
 
     const escapeHTML = (value) => String(value || "")
       .replaceAll("&", "&amp;")
@@ -1489,6 +1554,127 @@
       boardsMessage.classList.toggle("error", isError);
     };
 
+    const showToast = (text, variant = "success") => {
+      if (!toastStack || !text) {
+        return;
+      }
+
+      const previousRects = new Map();
+      toastStack.querySelectorAll(".toast").forEach((node) => {
+        previousRects.set(node, node.getBoundingClientRect());
+      });
+
+      const toast = document.createElement("div");
+      toast.className = `toast ${variant}`;
+      toast.setAttribute("role", "status");
+      toast.textContent = text;
+      toastStack.append(toast);
+
+      toastStack.querySelectorAll(".toast").forEach((node) => {
+        const previousRect = previousRects.get(node);
+        if (!previousRect) {
+          return;
+        }
+        const nextRect = node.getBoundingClientRect();
+        const deltaY = previousRect.top - nextRect.top;
+        if (deltaY !== 0) {
+          node.style.transform = `translateY(${deltaY}px)`;
+          node.getBoundingClientRect();
+          node.style.transform = "";
+        }
+      });
+
+      window.requestAnimationFrame(() => {
+        toast.classList.add("is-visible");
+      });
+
+      window.setTimeout(() => {
+        toast.classList.remove("is-visible");
+        window.setTimeout(() => {
+          toast.remove();
+        }, 360);
+      }, 4200);
+    };
+
+    const showSuccess = (message) => {
+      showToast(message, "success");
+      if (boardsMessage && !boardsMessage.classList.contains("error")) {
+        boardsMessage.hidden = true;
+        boardsMessage.textContent = "";
+      }
+    };
+
+    const showUnavailable = (message) => {
+      showToast(message, "error");
+    };
+
+    const setActionAvailability = (button, available, message) => {
+      if (!button) {
+        return;
+      }
+      button.disabled = false;
+      button.classList.toggle("unavailable", !available);
+      button.setAttribute("aria-disabled", available ? "false" : "true");
+      if (available) {
+        button.removeAttribute("data-unavailable-action");
+        button.removeAttribute("title");
+      } else {
+        button.dataset.unavailableAction = message;
+        button.title = message;
+      }
+    };
+
+    const isManager = () => managerRoles.has(actorRole);
+
+    const selectedBoardActionBlocker = (action) => {
+      if (!state.selectedBoardId || !state.selectedBoard) {
+        return "Сначала выберите доску.";
+      }
+      if (action === "create-task") {
+        if (!teamId) {
+          return "Нельзя создать задачу: пользователь не состоит в команде.";
+        }
+        if (state.selectedBoard.team_id && state.selectedBoard.team_id !== teamId) {
+          return "Нельзя создать задачу на доске другой команды.";
+        }
+        return "";
+      }
+      if (!isManager()) {
+        return "Недостаточно прав для действия с доской.";
+      }
+      if (action === "delete-board" && state.selectedBoard.team_id && state.selectedBoard.team_id !== teamId) {
+        return "Можно удалять только доски своей команды.";
+      }
+      return "";
+    };
+
+    const createBoardBlocker = () => {
+      if (!isManager()) {
+        return "Создавать доски могут только администраторы и капитаны.";
+      }
+      if (!teamId) {
+        return "Нельзя создать доску: пользователь не состоит в команде.";
+      }
+      return "";
+    };
+
+    const canModifyTask = (task) => {
+      if (!task) {
+        return false;
+      }
+      if (isManager()) {
+        return true;
+      }
+      return task.reporter_id === actorId || task.assignee_id === actorId;
+    };
+
+    const taskActionBlocker = (task) => {
+      if (!task) {
+        return "Задача не найдена.";
+      }
+      return canModifyTask(task) ? "" : "Редактировать и удалять задачу могут менеджер, репортер или исполнитель.";
+    };
+
     const selectedBoardName = () => state.selectedBoard ? state.selectedBoard.name : "";
 
     const cleanDisplayName = (value) => {
@@ -1500,6 +1686,35 @@
       return cleaned === "?" ? "" : cleaned;
     };
 
+    const maskEmailPart = (value, visibleCount) => {
+      if (!value) {
+        return "";
+      }
+      const visible = value.slice(0, Math.min(visibleCount, value.length));
+      const hiddenCount = Math.max(value.length - visible.length, 2);
+      return `${visible}${"*".repeat(hiddenCount)}`;
+    };
+
+    const maskEmail = (email) => {
+      const cleaned = String(email || "").trim();
+      const atIndex = cleaned.indexOf("@");
+      if (atIndex <= 0) {
+        return maskEmailPart(cleaned, 3);
+      }
+
+      const local = cleaned.slice(0, atIndex);
+      const domain = cleaned.slice(atIndex + 1);
+      const domainParts = domain.split(".");
+      const tld = domainParts.length > 1 ? domainParts.pop() : "";
+      const domainName = domainParts.join(".");
+      const maskedDomain = maskEmailPart(domainName, 1);
+
+      if (!tld) {
+        return `${maskEmailPart(local, 3)}@${maskedDomain}`;
+      }
+      return `${maskEmailPart(local, 3)}@${maskedDomain}.${tld}`;
+    };
+
     const userDisplay = (userID, emptyText = "Не назначен") => {
       const user = state.users.find((item) => item.id === userID);
       if (!user) {
@@ -1509,10 +1724,11 @@
         return emptyText;
       }
       const name = cleanDisplayName(user.full_name || [user.first_name, user.last_name].filter(Boolean).join(" "));
-      if (name && user.email) {
-        return `${name} — ${user.email}`;
+      const email = maskEmail(user.email);
+      if (name && email) {
+        return `${name} — ${email}`;
       }
-      return name || user.email || emptyText;
+      return name || email || emptyText;
     };
 
     const userLabel = (userID) => userDisplay(userID, "");
@@ -1572,6 +1788,11 @@
           select.append(new Option(userDisplay(selectedUserID, "Текущий пользователь"), selectedUserID));
         }
         select.value = selectedUserID;
+      });
+      taskModalRoot.querySelectorAll("[data-modal-edit-task], [data-modal-delete-task]").forEach((button) => {
+        const task = state.tasks.find((item) => item.id === button.dataset.taskId);
+        const blocker = taskActionBlocker(task);
+        setActionAvailability(button, blocker === "", blocker);
       });
     };
 
@@ -1653,15 +1874,27 @@
     };
 
     const updateBoardActionButtons = () => {
+      const createBoardMessage = createBoardBlocker();
       if (openCreateTaskButton) {
-        openCreateTaskButton.disabled = !state.selectedBoardId;
+        const message = selectedBoardActionBlocker("create-task");
+        setActionAvailability(openCreateTaskButton, message === "", message);
       }
       if (renameBoardButton) {
-        renameBoardButton.disabled = !state.selectedBoardId;
+        const message = selectedBoardActionBlocker("rename-board");
+        setActionAvailability(renameBoardButton, message === "", message);
       }
       if (deleteBoardButton) {
-        deleteBoardButton.disabled = !state.selectedBoardId;
+        const message = selectedBoardActionBlocker("delete-board");
+        setActionAvailability(deleteBoardButton, message === "", message);
       }
+      setActionAvailability(createBoardButton, createBoardMessage === "", createBoardMessage);
+      document.querySelectorAll("[data-create-board-empty]").forEach((button) => {
+        setActionAvailability(button, createBoardMessage === "", createBoardMessage);
+      });
+      document.querySelectorAll("[data-open-create-task]").forEach((button) => {
+        const message = selectedBoardActionBlocker("create-task");
+        setActionAvailability(button, message === "", message);
+      });
     };
 
     const bindBoardSelect = () => {
@@ -1864,6 +2097,25 @@
       const description = task.description || "";
       const dueText = task.due_to ? formatDate(task.due_to) : "Без срока";
       const assigneeText = task.assignee_id ? userDisplay(task.assignee_id) : "Без исполнителя";
+      const taskBlocker = taskActionBlocker(task);
+      const canAct = taskBlocker === "";
+      const editButton = canAct
+        ? `<button class="ghost compact"
+                    type="button"
+                    hx-get="/tasks/${escapeHTML(task.id)}/edit"
+                    hx-target="#task-modal-root"
+                    hx-swap="innerHTML"
+                    data-open-task-edit>Редактировать</button>`
+        : `<button class="ghost compact unavailable"
+                    type="button"
+                    aria-disabled="true"
+                    data-unavailable-action="${escapeHTML(taskBlocker)}">Редактировать</button>`;
+      const deleteButton = canAct
+        ? `<button class="danger compact" type="button" data-delete-task>Удалить</button>`
+        : `<button class="danger compact unavailable"
+                    type="button"
+                    aria-disabled="true"
+                    data-unavailable-action="${escapeHTML(taskBlocker)}">Удалить</button>`;
 
       return `
         <tr data-task-id="${escapeHTML(task.id)}" data-task-status="${escapeHTML(task.status)}">
@@ -1882,13 +2134,8 @@
           <td>Нет</td>
           <td>
             <div class="task-actions">
-              <button class="ghost compact"
-                      type="button"
-                      hx-get="/tasks/${escapeHTML(task.id)}/edit"
-                      hx-target="#task-modal-root"
-                      hx-swap="innerHTML"
-                      data-open-task-edit>Редактировать</button>
-              <button class="danger compact" type="button" data-delete-task>Удалить</button>
+              ${editButton}
+              ${deleteButton}
             </div>
           </td>
         </tr>
@@ -1979,7 +2226,7 @@
         const participantID = userFilter ? userFilter.value : "";
         const participantVisible = !participantID || participantID === "all"
           || (participantID === actorId && task && (task.reporter_id === actorId || task.assignee_id === actorId))
-          || (task && task.assignee_id === participantID);
+          || (task && (task.reporter_id === participantID || task.assignee_id === participantID));
         const visible = Boolean(task) && participantVisible && taskMatchesFilter(task, filter);
         row.hidden = !visible;
         if (visible) {
@@ -2099,8 +2346,9 @@
     };
 
     const openCreateDrawer = () => {
-      if (!state.selectedBoardId) {
-        showMessage("Сначала выберите доску.", true);
+      const blocker = selectedBoardActionBlocker("create-task");
+      if (blocker) {
+        showUnavailable(blocker);
         return;
       }
       if (taskDrawer) {
@@ -2110,8 +2358,9 @@
 
     const openEditDrawer = (taskId) => {
       const task = state.tasks.find((item) => item.id === taskId);
-      if (!task) {
-        showMessage("Задача не найдена.", true);
+      const blocker = taskActionBlocker(task);
+      if (blocker) {
+        showUnavailable(blocker);
         return;
       }
       if (taskDrawer) {
@@ -2142,8 +2391,10 @@
     };
 
     const createTask = async (formData) => {
-      if (!state.selectedBoardId) {
-        showMessage("Сначала выберите или создайте доску.", true);
+      const blocker = selectedBoardActionBlocker("create-task");
+      if (blocker) {
+        setDrawerError(blocker);
+        showUnavailable(blocker);
         return;
       }
 
@@ -2155,18 +2406,26 @@
           body: JSON.stringify(payload),
         });
         closeDrawer();
-        showMessage("Задача создана");
+        showSuccess("Задача создана");
         await loadTasksForSelectedBoard();
       } catch (error) {
         if (error.message !== "unauthorized") {
           const message = error.message || "Не удалось создать задачу.";
           setDrawerError(message);
-          showMessage(message, true);
+          showUnavailable(message);
         }
       }
     };
 
     const updateTask = async (taskId, form) => {
+      const task = state.tasks.find((item) => item.id === taskId);
+      const blocker = taskActionBlocker(task);
+      if (blocker) {
+        setDrawerError(blocker);
+        showUnavailable(blocker);
+        return;
+      }
+
       const formData = new FormData(form);
       const payload = drawerPayload(formData);
 
@@ -2177,30 +2436,36 @@
         });
         closeDrawer();
         closeTaskModal();
-        showMessage("Задача обновлена");
+        showSuccess("Задача обновлена");
         await loadTasksForSelectedBoard();
       } catch (error) {
         if (error.message !== "unauthorized") {
           const message = error.message || "Не удалось обновить задачу.";
           setDrawerError(message);
-          showMessage(message, true);
+          showUnavailable(message);
         }
       }
     };
 
     const deleteTask = async (taskId) => {
+      const task = state.tasks.find((item) => item.id === taskId);
+      const blocker = taskActionBlocker(task);
+      if (blocker) {
+        showUnavailable(blocker);
+        return false;
+      }
       if (!confirm("Удалить задачу?")) {
         return false;
       }
 
       try {
         await requestJSON(`/task/delete/${taskId}`, { method: "DELETE" });
-        showMessage("Задача удалена");
+        showSuccess("Задача удалена");
         await loadTasksForSelectedBoard();
         return true;
       } catch (error) {
         if (error.message !== "unauthorized") {
-          showMessage("Не удалось удалить задачу.", true);
+          showUnavailable("Не удалось удалить задачу.");
         }
         return false;
       }
@@ -2289,8 +2554,9 @@
     };
 
     const createBoard = async () => {
-      if (!teamId) {
-        showMessage("Для создания доски у пользователя должна быть команда.", true);
+      const blocker = createBoardBlocker();
+      if (blocker) {
+        showUnavailable(blocker);
         return;
       }
 
@@ -2300,7 +2566,7 @@
       }
       const trimmedName = name.trim();
       if (!trimmedName) {
-        showMessage("Введите название доски.", true);
+        showUnavailable("Введите название доски.");
         return;
       }
 
@@ -2316,18 +2582,20 @@
         const board = data.board;
         if (board) {
           state.boards = [board, ...state.boards.filter((item) => item.id !== board.id)];
-          showMessage("Доска создана");
+          showSuccess("Доска создана");
           await selectBoard(board.id);
         }
       } catch (error) {
         if (error.message !== "unauthorized") {
-          showMessage(error.message || "Не удалось создать доску.", true);
+          showUnavailable(error.message || "Не удалось создать доску.");
         }
       }
     };
 
     const renameBoard = async () => {
-      if (!state.selectedBoard) {
+      const blocker = selectedBoardActionBlocker("rename-board");
+      if (blocker) {
+        showUnavailable(blocker);
         return;
       }
 
@@ -2337,7 +2605,7 @@
       }
       const trimmedName = name.trim();
       if (!trimmedName) {
-        showMessage("Название доски не может быть пустым.", true);
+        showUnavailable("Название доски не может быть пустым.");
         return;
       }
 
@@ -2350,19 +2618,21 @@
         if (updatedBoard) {
           state.boards = state.boards.map((board) => board.id === updatedBoard.id ? updatedBoard : board);
           state.selectedBoard = updatedBoard;
-          showMessage("Доска переименована");
+          showSuccess("Доска переименована");
           renderBoardControls();
           renderTasks();
         }
       } catch (error) {
         if (error.message !== "unauthorized") {
-          showMessage("Не удалось переименовать доску.", true);
+          showUnavailable("Не удалось переименовать доску.");
         }
       }
     };
 
     const deleteBoard = async () => {
-      if (!state.selectedBoard) {
+      const blocker = selectedBoardActionBlocker("delete-board");
+      if (blocker) {
+        showUnavailable(blocker);
         return;
       }
       if (!confirm(`Удалить доску «${state.selectedBoard.name}»? Задачи этой доски также могут быть удалены.`)) {
@@ -2373,11 +2643,11 @@
         await requestJSON(`/board/delete/${state.selectedBoardId}`, { method: "DELETE" });
         const deletedBoardId = state.selectedBoardId;
         state.boards = state.boards.filter((board) => board.id !== deletedBoardId);
-        showMessage("Доска удалена");
+        showSuccess("Доска удалена");
         await selectBoard(state.boards[0] ? state.boards[0].id : "");
       } catch (error) {
         if (error.message !== "unauthorized") {
-          showMessage(error.message || "Не удалось удалить доску.", true);
+          showUnavailable(error.message || "Не удалось удалить доску.");
         }
       }
     };
@@ -2410,6 +2680,18 @@
     };
 
     bindBoardSelect();
+    document.body.addEventListener("click", (event) => {
+      const target = event.target instanceof HTMLElement
+        ? event.target.closest("[data-unavailable-action]")
+        : null;
+      if (!target) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      showUnavailable(target.dataset.unavailableAction || "Действие сейчас недоступно.");
+    }, true);
+
     if (createBoardButton) {
       createBoardButton.addEventListener("click", createBoard);
     }
@@ -2458,10 +2740,36 @@
       }
     });
 
+    const taskModalErrorMessage = (xhr) => {
+      if (!xhr || !xhr.responseText) {
+        return "Не удалось обновить задачу.";
+      }
+      const doc = new DOMParser().parseFromString(xhr.responseText, "text/html");
+      const error = doc.querySelector(".message.error");
+      return error && error.textContent.trim() ? error.textContent.trim() : "Не удалось обновить задачу.";
+    };
+
+    document.body.addEventListener("htmx:beforeSwap", (event) => {
+      const detail = event.detail || {};
+      const target = detail.target;
+      const xhr = detail.xhr;
+      if (target && target.id === "task-modal-root" && xhr && xhr.status === 422) {
+        detail.shouldSwap = true;
+        detail.isError = false;
+        showUnavailable(taskModalErrorMessage(xhr));
+      }
+    });
+
     document.body.addEventListener("htmx:responseError", (event) => {
-      const xhr = event.detail ? event.detail.xhr : null;
+      const detail = event.detail || {};
+      const xhr = detail.xhr;
+      const target = detail.target;
       if (xhr && xhr.status === 401) {
         window.location.replace("/ui/users/create?auth=required");
+        return;
+      }
+      if (target && target.id === "task-modal-root") {
+        showUnavailable(taskModalErrorMessage(xhr));
         return;
       }
       if (boardsError) {
@@ -2482,7 +2790,7 @@
       }
       taskUpdateRefreshTimer = window.setTimeout(async () => {
         closeTaskModal();
-        showMessage("Задача обновлена");
+        showSuccess("Задача обновлена");
         await Promise.all([
           loadUsers(),
           loadTasksForSelectedBoard(),

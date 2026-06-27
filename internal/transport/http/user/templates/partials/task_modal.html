@@ -24,9 +24,8 @@
         <div class="task-actions">
           <button class="ghost compact"
                   type="button"
-                  hx-get="/tasks/{{ .ID }}/edit"
-                  hx-target="#task-modal-root"
-                  hx-swap="innerHTML">Редактировать</button>
+                  data-modal-edit-task
+                  data-task-id="{{ .ID }}">Редактировать</button>
           <button class="danger compact" type="button" data-modal-delete-task data-task-id="{{ .ID }}">Удалить</button>
         </div>
 

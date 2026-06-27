@@ -303,12 +303,13 @@ func (h *handler) ShowTasks(ctx *gin.Context) {
 	}
 
 	ctx.HTML(http.StatusOK, "task_page", gin.H{
-		"title":    "Задачи",
-		"tasks":    []taskView{},
-		"actor_id": actor.ID.String(),
-		"team_id":  actorTeamID(actor),
-		"message":  taskMessage(ctx.Query("message")),
-		"error":    taskError(ctx.Query("error")),
+		"title":      "Задачи",
+		"tasks":      []taskView{},
+		"actor_id":   actor.ID.String(),
+		"actor_role": string(actor.Role),
+		"team_id":    actorTeamID(actor),
+		"message":    taskMessage(ctx.Query("message")),
+		"error":      taskError(ctx.Query("error")),
 	})
 }
 
@@ -390,15 +391,15 @@ func (h *handler) UpdateTaskModal(ctx *gin.Context) {
 	input, editView, err := newModalUpdateTaskInput(ctx, taskID)
 	if err != nil {
 		editView.Error = "Проверьте данные задачи."
-		ctx.HTML(http.StatusOK, "task_modal_edit", editView)
+		ctx.HTML(http.StatusUnprocessableEntity, "task_modal_edit", editView)
 		return
 	}
 
 	_, err = h.service.Update(ctx.Request.Context(), actor, taskID, input)
 	if err != nil {
-		_, msg := mapError(err)
+		status, msg := mapError(err)
 		editView.Error = msg
-		ctx.HTML(http.StatusOK, "task_modal_edit", editView)
+		ctx.HTML(status, "task_modal_edit", editView)
 		return
 	}
 
