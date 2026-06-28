@@ -5,7 +5,6 @@ import (
 	"errors"
 	"task_tracker/internal/application/common"
 	"task_tracker/internal/common_errors"
-	"task_tracker/internal/perf"
 	"task_tracker/internal/repo/team"
 	userRepo "task_tracker/internal/repo/user"
 
@@ -94,62 +93,31 @@ func (s *service) Create(ctx context.Context, input CreateTeamInput) (*Team, err
 }
 
 func (s *service) GetByID(ctx context.Context, id uuid.UUID) (*Team, error) {
-	var result *Team
-	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
-		team, err := s.teamRepo.GetByID(ctx, id)
-		if err != nil {
-			return mapGetError(err)
-		}
-		result = team
-		return nil
-	})
-
+	result, err := s.teamRepo.GetByID(ctx, id)
 	if err != nil {
-		return nil, err
+		return nil, mapGetError(err)
 	}
 	return result, nil
 }
 
 func (s *service) GetByName(ctx context.Context, name string) (*Team, error) {
-	var result *Team
-	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
-		team, err := s.teamRepo.GetByName(ctx, name)
-		if err != nil {
-			return mapGetError(err)
-		}
-		result = team
-		return nil
-	})
-
+	result, err := s.teamRepo.GetByName(ctx, name)
 	if err != nil {
-		return nil, err
+		return nil, mapGetError(err)
 	}
 	return result, nil
 }
 
 func (s *service) ListActive(ctx context.Context) ([]*Team, error) {
-	var result []*Team
-	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
-		team, err := s.teamRepo.ListActive(ctx)
-		if err != nil {
-			return mapGetError(err)
-		}
-		result = team
-		return nil
-	})
-
+	result, err := s.teamRepo.ListActive(ctx)
 	if err != nil {
-		return nil, err
+		return nil, mapGetError(err)
 	}
 	return result, nil
 }
 
 func (s *service) List(ctx context.Context) ([]*Team, error) {
-	defer perf.Track(ctx, "service.ListTeams.inner")()
-
-	repoDone := perf.Track(ctx, "repo.ListTeams")
 	result, err := s.teamRepo.List(ctx)
-	repoDone()
 	if err != nil {
 		return nil, mapGetError(err)
 	}

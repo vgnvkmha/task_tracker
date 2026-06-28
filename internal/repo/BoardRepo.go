@@ -11,7 +11,6 @@ import (
 	"task_tracker/internal/common_errors"
 	"task_tracker/internal/domain/board"
 	"task_tracker/internal/infrastracture/db"
-	"task_tracker/internal/perf"
 	"task_tracker/internal/repo/dberrors"
 
 	"github.com/google/uuid"
@@ -90,24 +89,17 @@ func (r *boardRepo) GetByID(ctx context.Context, id uuid.UUID) (*Board, error) {
 }
 
 func (r *boardRepo) List(ctx context.Context) ([]*Board, error) {
-	defer perf.Track(ctx, "repo.ListBoards.inner")()
 
 	const query = `
 		SELECT id, team_id, is_public, name, COALESCE(status, 'active'), created_at
 		FROM boards
 		ORDER BY created_at DESC
 	`
-
-	queryDone := perf.Track(ctx, "db.Query")
 	rows, err := queryBoardRows(ctx, r.db, query)
-	queryDone()
 	if err != nil {
 		return nil, dberrors.Map(err)
 	}
 	defer rows.Close()
-
-	scanDone := perf.Track(ctx, "rows.ScanAll")
-	defer scanDone()
 	return scanBoards(rows)
 }
 

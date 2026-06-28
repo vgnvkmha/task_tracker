@@ -18,7 +18,7 @@ func ToTaskResponse(t task.Task) TaskResponse {
 
 	dueTo := ""
 	if !t.DueTo.IsZero() {
-		dueTo = t.DueTo.String()
+		dueTo = t.DueTo.Format("2006-01-02T15:04:05")
 	}
 
 	return TaskResponse{

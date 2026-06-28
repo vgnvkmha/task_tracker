@@ -5,7 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ .title }}</title>
-  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+  <script src="/static/vendor/htmx.min.js" defer></script>
   <style>
     :root {
       color-scheme: light;
@@ -883,7 +883,7 @@
       display: flex;
       flex-wrap: wrap;
       gap: var(--space-3);
-      margin-bottom: var(--space-8);
+      margin-bottom: 34px;
     }
 
     .task-modal-edit-actions {
@@ -943,15 +943,47 @@
       overflow-wrap: anywhere;
     }
 
-    .task-section {
-      margin-top: var(--space-8);
+    .task-detail-section {
+      display: grid;
+      gap: var(--space-3);
+      margin-top: 34px;
     }
 
-    .task-section-title,
+    .task-detail-section:first-of-type {
+      margin-top: 0;
+    }
+
+    .task-detail-section-title {
+      margin: 0;
+      padding-left: var(--space-4);
+      font-size: var(--font-md);
+      font-weight: 800;
+    }
+
     .task-modal-details h3 {
       margin: 0 0 12px;
       font-size: var(--font-md);
       font-weight: 800;
+    }
+
+    .task-detail-panel {
+      min-height: 112px;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: var(--space-6);
+      background: var(--bg-surface);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .task-description-panel {
+      display: grid;
+      align-content: start;
+    }
+
+    .task-comments-panel {
+      min-height: 0;
+      padding: var(--space-5);
+      background: #f8fafc;
     }
 
     .task-modal-details {
@@ -1019,7 +1051,7 @@
 
     .task-description-content {
       max-width: 820px;
-      padding: 4px 0;
+      min-height: 64px;
     }
 
     .task-empty-text {
@@ -1093,11 +1125,12 @@
     }
 
     .empty-comments {
-      border: 1px dashed var(--border-strong);
+      border: 1px dashed #cbd5e1;
       border-radius: var(--radius-lg);
-      padding: var(--space-5);
+      padding: var(--space-5) var(--space-6);
       color: var(--text-muted);
-      background: #f8fafc;
+      background: rgba(255, 255, 255, 0.72);
+      line-height: 1.5;
     }
 
     #task-modal-root:empty {
@@ -1318,6 +1351,32 @@
 
       .task-modal h2 {
         font-size: 28px;
+      }
+
+      .task-modal .task-actions {
+        margin-bottom: var(--space-6);
+      }
+
+      .task-detail-section {
+        gap: var(--space-2);
+        margin-top: var(--space-6);
+      }
+
+      .task-detail-section-title {
+        padding-left: var(--space-3);
+      }
+
+      .task-detail-panel {
+        min-height: 88px;
+        padding: var(--space-5);
+      }
+
+      .task-comments-panel {
+        padding: var(--space-4);
+      }
+
+      .empty-comments {
+        padding: var(--space-4);
       }
     }
   </style>
@@ -2029,6 +2088,27 @@
       return Number.isNaN(fallback.getTime()) ? null : fallback;
     };
 
+    const parseDueToDate = (value) => {
+      if (!value) {
+        return null;
+      }
+
+      const wallClockMatch = String(value).match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?/);
+      if (!wallClockMatch) {
+        return parseDate(value);
+      }
+
+      const parsed = new Date(
+        Number(wallClockMatch[1]),
+        Number(wallClockMatch[2]) - 1,
+        Number(wallClockMatch[3]),
+        Number(wallClockMatch[4]),
+        Number(wallClockMatch[5]),
+        Number(wallClockMatch[6] || "0")
+      );
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    };
+
     const formatDate = (value) => {
       const parsed = parseDate(value);
       if (!parsed) {
@@ -2043,18 +2123,36 @@
       }).format(parsed);
     };
 
-    const dateTimeInputValue = (value) => {
-      const parsed = parseDate(value);
+    const formatDueDate = (value) => {
+      const parsed = parseDueToDate(value);
       if (!parsed) {
         return "";
       }
-      const offset = parsed.getTimezoneOffset();
-      const local = new Date(parsed.getTime() - offset * 60 * 1000);
-      return local.toISOString().slice(0, 16);
+      return new Intl.DateTimeFormat("ru-RU", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(parsed);
+    };
+
+    const padDatePart = (value) => String(value).padStart(2, "0");
+
+    const dateTimeInputValue = (value) => {
+      const parsed = parseDueToDate(value);
+      if (!parsed) {
+        return "";
+      }
+      return [
+        parsed.getFullYear(),
+        padDatePart(parsed.getMonth() + 1),
+        padDatePart(parsed.getDate()),
+      ].join("-") + `T${padDatePart(parsed.getHours())}:${padDatePart(parsed.getMinutes())}`;
     };
 
     const isOverdue = (task) => {
-      const dueTo = parseDate(task.due_to);
+      const dueTo = parseDueToDate(task.due_to);
       if (!dueTo) {
         return false;
       }
@@ -2083,8 +2181,8 @@
       if (rankDiff !== 0) {
         return rankDiff;
       }
-      const leftDue = parseDate(left.due_to);
-      const rightDue = parseDate(right.due_to);
+      const leftDue = parseDueToDate(left.due_to);
+      const rightDue = parseDueToDate(right.due_to);
       if (!leftDue && !rightDue) {
         return (parseDate(right.created_at)?.getTime() || 0) - (parseDate(left.created_at)?.getTime() || 0);
       }
@@ -2100,7 +2198,7 @@
     const renderTaskCard = (task) => {
       const overdue = isOverdue(task);
       const description = task.description || "";
-      const dueText = task.due_to ? formatDate(task.due_to) : "Без срока";
+      const dueText = task.due_to ? formatDueDate(task.due_to) : "Без срока";
       const assigneeText = task.assignee_id ? userDisplay(task.assignee_id) : "Без исполнителя";
       const taskBlocker = taskActionBlocker(task);
       const canAct = taskBlocker === "";
@@ -2265,7 +2363,13 @@
       if (!value) {
         return null;
       }
-      return new Date(value).toISOString();
+      const normalized = value.length === 16 ? `${value}:00` : value;
+      const offsetMinutes = new Date().getTimezoneOffset();
+      const sign = offsetMinutes <= 0 ? "+" : "-";
+      const absoluteOffset = Math.abs(offsetMinutes);
+      const hours = padDatePart(Math.floor(absoluteOffset / 60));
+      const minutes = padDatePart(absoluteOffset % 60);
+      return `${normalized}${sign}${hours}:${minutes}`;
     };
 
     const closeDrawer = () => {
@@ -2393,6 +2497,22 @@
         payload.reporter_id = reporterID;
       }
       return payload;
+    };
+
+    const validateDrawerDueTo = (form) => {
+      const dueToInput = form.querySelector('input[name="due_to"]');
+      if (!dueToInput || !dueToInput.value) {
+        return true;
+      }
+
+      const dueTo = parseDueToDate(dueToInput.value);
+      if (!dueTo || dueTo.getTime() >= Date.now()) {
+        return true;
+      }
+
+      setDrawerError("Срок задачи должен быть в будущем.");
+      dueToInput.focus();
+      return false;
     };
 
     const createTask = async (formData) => {
@@ -2880,6 +3000,9 @@
           if (nameInput) {
             nameInput.focus();
           }
+          return;
+        }
+        if (!validateDrawerDueTo(form)) {
           return;
         }
         if (form.dataset.mode === "edit" && form.dataset.taskId) {

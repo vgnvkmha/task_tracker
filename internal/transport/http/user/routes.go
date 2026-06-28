@@ -9,6 +9,8 @@ import (
 )
 
 func RegisterRoutes(r *gin.Engine, h UserHandler, tokens *infraauth.JWTService, legacyHeadersEnabled bool) {
+	r.GET("/ui/login", h.ShowCreateForm)
+
 	ui := r.Group("/ui/users")
 	ui.GET("/create", h.ShowCreateForm)
 	ui.GET("/success", h.ShowAuthSuccess)

@@ -5,7 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ .title }}</title>
-  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+  <script src="/static/vendor/htmx.min.js" defer></script>
   <style>
     :root {
       color-scheme: light;
@@ -290,10 +290,10 @@
       <button type="button" data-form-target="register-form">Регистрация</button>
     </div>
 
-    <form id="login-form" hx-get="/ui/users/login" hx-target="#create-user-result" hx-swap="innerHTML">
+    <form id="login-form" hx-get="/ui/users/login" hx-target="#create-user-result" hx-swap="innerHTML" novalidate>
       <label>
         <span>Электронная почта <span class="required">*</span></span>
-        <input name="email" type="email" autocomplete="email" required data-required-message="Введите электронную почту">
+        <input name="email" type="email" autocomplete="email" required data-required-message="Введите электронную почту" data-invalid-message="Введите корректную электронную почту">
         <span class="field-error">Введите электронную почту</span>
       </label>
       <label>
@@ -307,16 +307,11 @@
       </div>
     </form>
 
-    <form id="register-form" class="hidden" hx-post="/ui/users" hx-target="#create-user-result" hx-swap="innerHTML">
+    <form id="register-form" class="hidden" hx-post="/ui/users" hx-target="#create-user-result" hx-swap="innerHTML" novalidate>
       <label>
         <span>Электронная почта <span class="required">*</span></span>
-        <input name="email" type="email" autocomplete="email" required data-required-message="Введите электронную почту">
+        <input name="email" type="email" autocomplete="email" required data-required-message="Введите электронную почту" data-invalid-message="Введите корректную электронную почту">
         <span class="field-error">Введите электронную почту</span>
-      </label>
-      <label>
-        <span>Пароль <span class="required">*</span></span>
-        <input name="password" type="password" autocomplete="new-password" required data-required-message="Введите пароль">
-        <span class="field-error">Введите пароль</span>
       </label>
       <label>
         <span>Роль <span class="required">*</span></span>
@@ -329,10 +324,6 @@
         <span class="field-error">Выберите роль</span>
       </label>
       <label>
-        Команда
-        <input name="team_name" type="text" autocomplete="organization">
-      </label>
-      <label>
         <span>Имя <span class="required">*</span></span>
         <input name="first_name" type="text" autocomplete="given-name" pattern="[^0-9]*" required data-required-message="Введите имя" data-invalid-message="Имя не должно содержать цифры">
         <span class="field-error">Введите имя</span>
@@ -343,9 +334,14 @@
         <span class="field-error">Введите фамилию</span>
       </label>
       <label>
-        Дата рождения
-        <input name="birth_date" type="date" min="1800-01-01" data-invalid-message="Дата рождения не может быть раньше 01.01.1800">
-        <span class="field-error">Дата рождения не может быть раньше 01.01.1800</span>
+        <span>Пароль <span class="required">*</span></span>
+        <input name="password" type="password" autocomplete="new-password" required data-required-message="Введите пароль">
+        <span class="field-error">Введите пароль</span>
+      </label>
+      <label>
+        <span>Повторите пароль <span class="required">*</span></span>
+        <input name="password_confirmation" type="password" autocomplete="new-password" required data-required-message="Повторите пароль" data-invalid-message="Пароли не совпадают">
+        <span class="field-error">Повторите пароль</span>
       </label>
       <div class="actions">
         <button type="submit">Зарегистрироваться</button>
@@ -361,7 +357,7 @@
 
       const validateTouchedField = () => {
         if (!label || !error) {
-          return;
+          return true;
         }
 
         const value = field.value.trim();
@@ -369,6 +365,8 @@
 
         if (field.required && value === "") {
           message = field.dataset.requiredMessage || "Заполните поле";
+        } else if (field.type === "email" && value !== "" && !field.validity.valid) {
+          message = field.dataset.invalidMessage || "Введите корректную электронную почту";
         } else if (field.name === "first_name" && /\d/.test(value)) {
           message = field.dataset.invalidMessage;
         } else if (field.name === "last_name" && /\d/.test(value)) {
@@ -378,8 +376,11 @@
           if (!Number.isInteger(age) || age < 0 || age > 255) {
             message = field.dataset.invalidMessage;
           }
-        } else if (field.name === "birth_date" && value !== "" && value < "1800-01-01") {
-          message = field.dataset.invalidMessage;
+        } else if (field.name === "password_confirmation" && value !== "") {
+          const password = field.form ? field.form.querySelector('input[name="password"]') : null;
+          if (password && value !== password.value) {
+            message = field.dataset.invalidMessage;
+          }
         }
 
         const hasError = message !== "";
@@ -389,6 +390,8 @@
         if (hasError) {
           error.textContent = message;
         }
+
+        return !hasError;
       };
 
       field.addEventListener("blur", validateTouchedField);
@@ -396,11 +399,74 @@
         if (label.classList.contains("has-error")) {
           validateTouchedField();
         }
+        if (field.name === "password") {
+          const confirmation = field.form ? field.form.querySelector('input[name="password_confirmation"]') : null;
+          const confirmationLabel = confirmation ? confirmation.closest("label") : null;
+          if (confirmationLabel && confirmationLabel.classList.contains("has-error")) {
+            confirmation.dispatchEvent(new Event("input"));
+          }
+        }
       });
       field.addEventListener("change", () => {
         if (label.classList.contains("has-error")) {
           validateTouchedField();
         }
+      });
+    });
+
+    const validateForm = (form) => {
+      const fields = Array.from(form.querySelectorAll("input, select"));
+      let isValid = true;
+
+      fields.forEach((field) => {
+        field.dispatchEvent(new Event("blur"));
+        const fieldLabel = field.closest("label");
+        if (fieldLabel && fieldLabel.classList.contains("has-error")) {
+          isValid = false;
+        }
+      });
+
+      return isValid;
+    };
+
+    const stopInvalidForm = (event, form) => {
+      if (!validateForm(form)) {
+        event.preventDefault();
+        event.stopPropagation();
+        document.querySelector("#create-user-result").innerHTML = "";
+      }
+    };
+
+    document.querySelectorAll("#login-form, #register-form").forEach((form) => {
+      form.addEventListener("submit", (event) => {
+        stopInvalidForm(event, form);
+      }, true);
+
+      form.addEventListener("htmx:beforeRequest", (event) => {
+        stopInvalidForm(event, form);
+      });
+    });
+
+    document.body.addEventListener("htmx:beforeSwap", (event) => {
+      if (event.detail.target && event.detail.target.id === "create-user-result") {
+        const activeForm = document.querySelector("#register-form:not(.hidden)");
+        if (activeForm && !validateForm(activeForm)) {
+          event.preventDefault();
+          event.detail.target.innerHTML = "";
+        }
+      }
+    });
+
+    document.querySelectorAll("#login-form, #register-form").forEach((form) => {
+      form.addEventListener("reset", () => {
+        const fields = Array.from(form.querySelectorAll("input, select"));
+        fields.forEach((field) => {
+          const fieldLabel = field.closest("label");
+          if (fieldLabel) {
+            fieldLabel.classList.remove("has-error");
+          }
+          field.removeAttribute("aria-invalid");
+        });
       });
     });
 

@@ -8,7 +8,6 @@ import (
 	"task_tracker/internal/domain/auth"
 	personaldata "task_tracker/internal/domain/personal_data"
 	"task_tracker/internal/domain/user"
-	"task_tracker/internal/perf"
 	"task_tracker/internal/repo/team"
 	userRepo "task_tracker/internal/repo/user"
 
@@ -75,7 +74,6 @@ func (s *service) CreateRegister(ctx context.Context, userInput CreateUserInput)
 		return nil, logError(err, s.logger,
 			"operation", "create_register",
 			"email", userInput.Email,
-			"team_name", userInput.TeamName,
 		)
 	}
 
@@ -119,7 +117,6 @@ func (s *service) CreateByActor(ctx context.Context, actor auth.Actor, userInput
 			"actor_id", actor.ID,
 			"actor_role", actor.Role,
 			"email", userInput.Email,
-			"team_name", userInput.TeamName,
 		)
 	}
 
@@ -140,21 +137,10 @@ func (s *service) createUser(ctx context.Context, operation string, userInput Cr
 	baseLogFields := appendLogFields([]any{"operation", operation}, logFields...)
 	teamID := uuid.Nil
 
-	if userInput.TeamName != nil {
-		team, err := s.teamRepo.GetByName(ctx, *userInput.TeamName)
-		if err != nil {
-			logFailure(s.logger, "get team by name failed", err,
-				appendLogFields(baseLogFields, "team_name", *userInput.TeamName)...,
-			)
-			return nil, ErrTeamNotFound
-		}
-		teamID = team.ID
-	}
-
 	personalData, err := personaldata.New(
 		userInput.FirstName,
 		userInput.LastName,
-		userInput.BirthDate,
+		nil,
 		userInput.Age,
 	)
 	if err != nil {
@@ -433,25 +419,17 @@ func (s *service) Restore(ctx context.Context, email string, password string) (*
 }
 
 func (s *service) GetByID(ctx context.Context, id uuid.UUID) (*User, error) {
-	var result *User
-	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
-		user, err := s.userRepo.GetByID(ctx, id)
-		if err != nil {
-			return mapGetError(err)
-		}
-		if user.IsDeleted() {
-			return ErrUserAlreadyDeleted
-		}
-		result = user
-		return nil
-	})
-
+	result, err := s.userRepo.GetByID(ctx, id)
 	if err != nil {
+		err = mapGetError(err)
 		logFailure(s.logger, "get user by ID operation failed", err,
 			"operation", "get_by_id",
 			"id", id,
 		)
 		return nil, err
+	}
+	if result.IsDeleted() {
+		return nil, ErrUserAlreadyDeleted
 	}
 	return result, nil
 }
@@ -505,17 +483,9 @@ func (s *service) GetProfileByID(ctx context.Context, id uuid.UUID) (*Profile, e
 }
 
 func (s *service) ListActive(ctx context.Context) ([]*User, error) {
-	var result []*User
-	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
-		user, err := s.userRepo.ListActive(ctx)
-		if err != nil {
-			return mapGetError(err)
-		}
-		result = user
-		return nil
-	})
-
+	result, err := s.userRepo.ListActive(ctx)
 	if err != nil {
+		err = mapGetError(err)
 		logFailure(s.logger, "list active get operation failed", err,
 			"operation", "list_active",
 		)
@@ -525,11 +495,7 @@ func (s *service) ListActive(ctx context.Context) ([]*User, error) {
 }
 
 func (s *service) ListActiveProfiles(ctx context.Context) ([]*Profile, error) {
-	defer perf.Track(ctx, "service.ListActiveProfiles.inner")()
-
-	repoDone := perf.Track(ctx, "repo.ListActiveProfiles")
 	profiles, err := s.userRepo.ListActiveProfiles(ctx)
-	repoDone()
 	if err != nil {
 		err = mapGetError(err)
 		logFailure(s.logger, "list active profiles operation failed", err,
@@ -579,17 +545,9 @@ func (s *service) ListProfiles(ctx context.Context) ([]*Profile, error) {
 }
 
 func (s *service) List(ctx context.Context) ([]*User, error) {
-	var result []*User
-	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
-		user, err := s.userRepo.List(ctx)
-		if err != nil {
-			return mapGetError(err)
-		}
-		result = user
-		return nil
-	})
-
+	result, err := s.userRepo.List(ctx)
 	if err != nil {
+		err = mapGetError(err)
 		logFailure(s.logger, "list get operation failed", err,
 			"operation", "list",
 		)

@@ -2,6 +2,8 @@ package app
 
 import (
 	"context"
+	"net/http"
+	"strings"
 	board_application "task_tracker/internal/application/board"
 	task_service "task_tracker/internal/application/task"
 	team_application "task_tracker/internal/application/team"
@@ -71,12 +73,30 @@ func Run() error {
 	router := gin.Default()
 	router.SetTrustedProxies(nil) //TODO: change later
 	router.SetHTMLTemplate(handler_user.Templates())
-	router.Use(middleware.PerfRequestMiddleware())
+	router.Use(staticCacheMiddleware())
+	router.Static("/static", "./static")
 	router.Use(middleware.MockActorMiddleware())
+	router.GET("/", func(c *gin.Context) {
+		c.Redirect(http.StatusSeeOther, "/ui/login")
+	})
 	auth_handler.RegisterRoutes(router, authHandler)
 	handler_user.RegisterRoutes(router, userHandler, jwtService, authCfg.LegacyHeadersEnabled)
 	team_handler.RegisterRoutes(router, teamHandler, jwtService, authCfg.LegacyHeadersEnabled)
 	task_handler.RegisterRoutes(router, taskHandler, jwtService, authCfg.LegacyHeadersEnabled)
 	board_handler.RegisterRoutes(router, boardHandler, jwtService, authCfg.LegacyHeadersEnabled)
+	router.NoRoute(func(c *gin.Context) {
+		c.HTML(http.StatusNotFound, "not_found_page", gin.H{
+			"title": "Страница не найдена",
+		})
+	})
 	return router.Run(":8080")
+}
+
+func staticCacheMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if strings.HasPrefix(c.Request.URL.Path, "/static/") {
+			c.Header("Cache-Control", "public, max-age=31536000, immutable")
+		}
+		c.Next()
+	}
 }

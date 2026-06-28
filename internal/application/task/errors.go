@@ -10,6 +10,7 @@ var (
 
 	ErrInvalidInput      = errors.New("invalid task input")
 	ErrInvalidTaskID     = errors.New("invalid task id")
+	ErrInvalidDueTo      = errors.New("task due date must be in the future")
 	ErrPermissionDenied  = errors.New("permission denied")
 	ErrReporterRequired  = errors.New("task reporter is required")
 	ErrBoardRequired     = errors.New("task board is required")

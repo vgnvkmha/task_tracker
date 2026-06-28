@@ -5,7 +5,6 @@ import (
 
 	boardapp "task_tracker/internal/application/board"
 	"task_tracker/internal/domain/auth"
-	"task_tracker/internal/perf"
 	"task_tracker/internal/transport/http/middleware"
 
 	"github.com/gin-gonic/gin"
@@ -84,28 +83,18 @@ func (h *handler) GetByID(c *gin.Context) {
 }
 
 func (h *handler) List(c *gin.Context) {
-	defer perf.Track(c.Request.Context(), "handler_total")()
-	perf.LogStep(c.Request.Context(), "handler_start")
 
 	actor, ok := actorFromContext(c)
 	if !ok {
 		return
 	}
-
-	serviceDone := perf.Track(c.Request.Context(), "service.ListBoards")
 	boards, err := h.service.List(c.Request.Context(), actor)
-	serviceDone()
 	if err != nil {
 		status, msg := mapError(err)
-		jsonDone := perf.Track(c.Request.Context(), "json_response")
 		c.JSON(status, gin.H{"error": msg})
-		jsonDone()
 		return
 	}
-
-	jsonDone := perf.Track(c.Request.Context(), "json_response")
 	c.JSON(http.StatusOK, gin.H{"boards": NewResponses(boards)})
-	jsonDone()
 }
 
 func (h *handler) ListByTeamID(c *gin.Context) {

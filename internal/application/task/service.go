@@ -8,7 +8,6 @@ import (
 	"task_tracker/internal/common_errors"
 	"task_tracker/internal/domain/auth"
 	domaintask "task_tracker/internal/domain/task"
-	"task_tracker/internal/perf"
 	"task_tracker/internal/repo"
 
 	"github.com/google/uuid"
@@ -128,22 +127,9 @@ func (s *service) validateCreateBoardAccess(ctx context.Context, actor auth.Acto
 }
 
 func (s *service) GetByID(ctx context.Context, actor auth.Actor, id uuid.UUID) (*Task, error) {
-	var result *Task
-
-	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
-		task, err := s.taskRepo.GetByID(ctx, id)
-		if err != nil {
-			return mapRepoError(err, ErrTaskNotFound)
-		}
-		if task == nil {
-			return ErrTaskNotFound
-		}
-
-		result = task
-		return nil
-	})
-
+	result, err := s.taskRepo.GetByID(ctx, id)
 	if err != nil {
+		err = mapRepoError(err, ErrTaskNotFound)
 		return nil, logError(err, s.logger,
 			"operation", "get_by_id",
 			"actor_id", actor.ID,
@@ -151,12 +137,14 @@ func (s *service) GetByID(ctx context.Context, actor auth.Actor, id uuid.UUID) (
 			"task_id", id,
 		)
 	}
+	if result == nil {
+		return nil, ErrTaskNotFound
+	}
 
 	return result, nil
 }
 
 func (s *service) FindMany(ctx context.Context, actor auth.Actor, filters TaskFilters) ([]*Task, error) {
-	defer perf.Track(ctx, "service.FindMany.inner")()
 
 	if filters.Status != nil {
 		if err := filters.Status.IsValid(); err != nil {
@@ -167,10 +155,7 @@ func (s *service) FindMany(ctx context.Context, actor auth.Actor, filters TaskFi
 			)
 		}
 	}
-
-	repoDone := perf.Track(ctx, "repo.FindManyTasks")
 	result, err := s.taskRepo.FindMany(ctx, toRepoFilters(filters))
-	repoDone()
 	if err != nil {
 		mappedErr := mapRepoError(err, ErrTaskNotFound)
 		return nil, logError(mappedErr, s.logger,
@@ -327,9 +312,10 @@ func mapDomainError(err error) error {
 	switch {
 	case errors.Is(err, domaintask.ErrTaskName),
 		errors.Is(err, domaintask.ErrTaskBoard),
-		errors.Is(err, domaintask.ErrTaskUser),
-		errors.Is(err, domaintask.ErrInvalidTime):
+		errors.Is(err, domaintask.ErrTaskUser):
 		return ErrInvalidInput
+	case errors.Is(err, domaintask.ErrInvalidTime):
+		return ErrInvalidDueTo
 	case errors.Is(err, domaintask.ErrInvalidStatus),
 		errors.Is(err, domaintask.ErrInvalidRole):
 		return ErrInvalidStatus

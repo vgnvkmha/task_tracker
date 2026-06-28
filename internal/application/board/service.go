@@ -8,7 +8,6 @@ import (
 	"task_tracker/internal/common_errors"
 	"task_tracker/internal/domain/auth"
 	domainboard "task_tracker/internal/domain/board"
-	"task_tracker/internal/perf"
 	"task_tracker/internal/repo"
 
 	"github.com/google/uuid"
@@ -83,22 +82,9 @@ func (s *service) Create(ctx context.Context, actor auth.Actor, input CreateBoar
 }
 
 func (s *service) GetByID(ctx context.Context, actor auth.Actor, id uuid.UUID) (*Board, error) {
-	var result *Board
-
-	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
-		board, err := s.boardRepo.GetByID(ctx, id)
-		if err != nil {
-			return mapRepoError(err, ErrBoardNotFound)
-		}
-		if board == nil {
-			return ErrBoardNotFound
-		}
-
-		result = board
-		return nil
-	})
-
+	result, err := s.boardRepo.GetByID(ctx, id)
 	if err != nil {
+		err = mapRepoError(err, ErrBoardNotFound)
 		return nil, logError(err, s.logger,
 			"operation", "get_by_id",
 			"actor_id", actor.ID,
@@ -106,16 +92,15 @@ func (s *service) GetByID(ctx context.Context, actor auth.Actor, id uuid.UUID) (
 			"board_id", id,
 		)
 	}
+	if result == nil {
+		return nil, ErrBoardNotFound
+	}
 
 	return result, nil
 }
 
 func (s *service) List(ctx context.Context, actor auth.Actor) ([]*Board, error) {
-	defer perf.Track(ctx, "service.ListBoards.inner")()
-
-	repoDone := perf.Track(ctx, "repo.ListBoards")
 	result, err := s.boardRepo.List(ctx)
-	repoDone()
 	if err != nil {
 		mappedErr := mapRepoError(err, ErrListBoardsFailed)
 		return nil, logError(mappedErr, s.logger,
@@ -129,19 +114,9 @@ func (s *service) List(ctx context.Context, actor auth.Actor) ([]*Board, error) 
 }
 
 func (s *service) ListByTeamID(ctx context.Context, actor auth.Actor, teamID uuid.UUID) ([]*Board, error) {
-	var result []*Board
-
-	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
-		boards, err := s.boardRepo.ListByTeamID(ctx, teamID)
-		if err != nil {
-			return mapRepoError(err, ErrListBoardsFailed)
-		}
-
-		result = boards
-		return nil
-	})
-
+	result, err := s.boardRepo.ListByTeamID(ctx, teamID)
 	if err != nil {
+		err = mapRepoError(err, ErrListBoardsFailed)
 		return nil, logError(err, s.logger,
 			"operation", "list_by_team_id",
 			"actor_id", actor.ID,
@@ -154,23 +129,13 @@ func (s *service) ListByTeamID(ctx context.Context, actor auth.Actor, teamID uui
 }
 
 func (s *service) Search(ctx context.Context, actor auth.Actor, input SearchBoardsInput) ([]*Board, error) {
-	var result []*Board
-
-	err := s.transaction.WithTx(ctx, func(ctx context.Context) error {
-		boards, err := s.boardRepo.Search(ctx, repo.BoardSearchFilters{
-			Query:  input.Query,
-			TeamID: input.TeamID,
-			UserID: input.UserID,
-		})
-		if err != nil {
-			return mapRepoError(err, ErrListBoardsFailed)
-		}
-
-		result = boards
-		return nil
+	result, err := s.boardRepo.Search(ctx, repo.BoardSearchFilters{
+		Query:  input.Query,
+		TeamID: input.TeamID,
+		UserID: input.UserID,
 	})
-
 	if err != nil {
+		err = mapRepoError(err, ErrListBoardsFailed)
 		return nil, logError(err, s.logger,
 			"operation", "search",
 			"actor_id", actor.ID,

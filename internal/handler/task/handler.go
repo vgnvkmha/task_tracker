@@ -12,7 +12,6 @@ import (
 	"task_tracker/internal/domain/auth"
 	domaintask "task_tracker/internal/domain/task"
 	dto "task_tracker/internal/handler/task/dto"
-	"task_tracker/internal/perf"
 	"task_tracker/internal/render"
 	"task_tracker/internal/transport/http/middleware"
 
@@ -121,8 +120,6 @@ func (h *handler) List(ctx *gin.Context) {
 }
 
 func (h *handler) GetByBoardID(ctx *gin.Context) {
-	defer perf.Track(ctx.Request.Context(), "handler_total")()
-	perf.LogStep(ctx.Request.Context(), "handler_start")
 
 	actor, ok := middleware.GetActor(ctx)
 	if !ok {
@@ -134,23 +131,15 @@ func (h *handler) GetByBoardID(ctx *gin.Context) {
 	if !ok {
 		return
 	}
-
-	serviceDone := perf.Track(ctx.Request.Context(), "service.FindByBoardID")
 	tasks, err := h.service.FindByBoardID(ctx.Request.Context(), actor, boardID)
-	serviceDone()
 	if err != nil {
 		status, msg := mapError(err)
-		jsonDone := perf.Track(ctx.Request.Context(), "json_response")
 		ctx.JSON(status, gin.H{"error": msg})
-		jsonDone()
 		return
 	}
-
-	jsonDone := perf.Track(ctx.Request.Context(), "json_response")
 	ctx.JSON(http.StatusOK, gin.H{
 		"tasks": dto.ToTaskResponses(tasks),
 	})
-	jsonDone()
 }
 
 func (h *handler) GetByAssigneeID(ctx *gin.Context) {

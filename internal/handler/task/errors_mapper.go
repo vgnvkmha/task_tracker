@@ -23,6 +23,8 @@ func mapError(err error) (int, string) {
 		return http.StatusForbidden, "Недостаточно прав для действия с задачей"
 	case errors.Is(err, taskApplication.ErrInvalidInput):
 		return http.StatusUnprocessableEntity, "Проверьте данные задачи"
+	case errors.Is(err, taskApplication.ErrInvalidDueTo):
+		return http.StatusUnprocessableEntity, "Срок задачи должен быть в будущем"
 	case errors.Is(err, taskApplication.ErrInvalidStatus):
 		return http.StatusUnprocessableEntity, "Некорректный статус задачи"
 	case errors.Is(err, taskApplication.ErrInvalidTransition):

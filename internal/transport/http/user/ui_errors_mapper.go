@@ -93,9 +93,11 @@ func mapUIFormError(err error) string {
 	case errInvalidBirthDate:
 		return "Дата рождения должна быть в формате ГГГГ-ММ-ДД."
 	case errRequiredFieldsMissing:
-		return "Заполните обязательные поля: электронную почту, пароль, роль, имя и фамилию."
+		return "Заполните обязательные поля: электронную почту, роль, имя, фамилию и оба поля пароля."
 	case errLoginFieldsMissing:
 		return "Введите электронную почту и пароль."
+	case errPasswordMismatch:
+		return "Пароли не совпадают."
 	default:
 		return "Проверьте данные формы."
 	}
