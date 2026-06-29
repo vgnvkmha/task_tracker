@@ -399,6 +399,12 @@
       return options.join("");
     };
 
+    const sortUsersByEmailDesc = () => {
+      users.sort((left, right) => String(right.email || "").localeCompare(String(left.email || ""), "ru", {
+        sensitivity: "base",
+      }));
+    };
+
     const renderPagination = () => {
       if (!pagination || !paginationInfo || !paginationControls) {
         return;
@@ -426,6 +432,8 @@
     };
 
     const renderUsers = () => {
+      sortUsersByEmailDesc();
+
       if (!users.length) {
         usersBody.innerHTML = '<tr><td colspan="8" class="empty">Пользователи не найдены.</td></tr>';
         renderPagination();

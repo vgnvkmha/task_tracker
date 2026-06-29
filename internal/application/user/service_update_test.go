@@ -497,6 +497,33 @@ func TestServiceCreateRegisterRejectsMissingRoleBeforePersistingPersonalData(t *
 	}
 }
 
+func TestServiceCreateRegisterAllowsManagerWithoutTeam(t *testing.T) {
+	svc, users, data, _ := newUpdateTestService()
+
+	created, err := svc.CreateRegister(context.Background(), CreateUserInput{
+		Email:     "manager@example.com",
+		Password:  "Strong1!",
+		Role:      string(valueobjects.Captain),
+		FirstName: "Ivan",
+		LastName:  "Petrov",
+	})
+	if err != nil {
+		t.Fatalf("CreateRegister returned error: %v", err)
+	}
+	if created == nil {
+		t.Fatal("created = nil, want user")
+	}
+	if created.TeamID != nil {
+		t.Fatalf("TeamID = %v, want nil", created.TeamID)
+	}
+	if len(data.data) != 1 {
+		t.Fatalf("personal data count = %d, want 1", len(data.data))
+	}
+	if len(users.users) != 1 {
+		t.Fatalf("user count = %d, want 1", len(users.users))
+	}
+}
+
 func newUpdateTestService() (UserService, *fakeUserRepo, *fakePersonalDataRepo, *fakeTeamRepo) {
 	users := newFakeUserRepo()
 	data := newFakePersonalDataRepo()

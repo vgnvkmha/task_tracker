@@ -40,9 +40,6 @@ func New(teamId, personalDataId uuid.UUID, emailRaw, passwordRaw, roleRaw string
 	}
 
 	role := valueobjects.Role(roleRaw)
-	if teamId == uuid.Nil && role.IsManagerRole() {
-		return nil, ErrManagerMustHaveTeam
-	}
 
 	var teamID *uuid.UUID
 	if teamId != uuid.Nil {

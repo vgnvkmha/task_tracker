@@ -486,8 +486,10 @@
             {{ if .profile.CanEditTeam }}
               <label>
                 Команда
-                <input name="team_name" type="text" autocomplete="organization" value="{{ .profile.TeamName }}" placeholder="Название команды">
-                <span class="field-error">Введите название команды</span>
+                <select name="team_id" data-profile-team-select data-current-team-id="{{ .profile.TeamID }}">
+                  <option value="">Загрузка команд...</option>
+                </select>
+                <span class="field-error">Выберите команду</span>
               </label>
             {{ end }}
 
@@ -674,9 +676,25 @@
       });
     });
 
-    const teamRequestSelect = document.querySelector("[data-team-request-select]");
-    const teamRequestName = document.querySelector("[data-team-request-name]");
-    if (teamRequestSelect) {
+    const teamSelects = Array.from(document.querySelectorAll("[data-profile-team-select], [data-team-request-select]"));
+    const populateTeamSelect = (select, teams) => {
+      const currentTeamID = select.dataset.currentTeamId || "";
+      select.innerHTML = '<option value="">Выберите команду</option>';
+      teams.forEach((team) => {
+        if (team.id && team.name) {
+          select.append(new Option(team.name, team.id));
+        }
+      });
+      if (teams.length === 0) {
+        select.innerHTML = '<option value="">Команды не найдены</option>';
+        return;
+      }
+      if (currentTeamID && [...select.options].some((option) => option.value === currentTeamID)) {
+        select.value = currentTeamID;
+      }
+    };
+
+    if (teamSelects.length > 0) {
       fetch("/team/list", {
         credentials: "same-origin",
         headers: { "Accept": "application/json" },
@@ -689,21 +707,19 @@
         })
         .then((data) => {
           const teams = Array.isArray(data.team) ? data.team : [];
-          teamRequestSelect.innerHTML = '<option value="">Выберите команду</option>';
-          teams.forEach((team) => {
-            if (team.id && team.name) {
-              teamRequestSelect.append(new Option(team.name, team.id));
-            }
-          });
-          if (teams.length === 0) {
-            teamRequestSelect.innerHTML = '<option value="">Команды не найдены</option>';
-          }
+          teamSelects.forEach((select) => populateTeamSelect(select, teams));
         })
         .catch(() => {
-          teamRequestSelect.innerHTML = '<option value="">Не удалось загрузить команды</option>';
+          teamSelects.forEach((select) => {
+            select.innerHTML = '<option value="">Не удалось загрузить команды</option>';
+          });
           showToast("Не удалось загрузить команды.");
         });
+    }
 
+    const teamRequestSelect = document.querySelector("[data-team-request-select]");
+    const teamRequestName = document.querySelector("[data-team-request-name]");
+    if (teamRequestSelect) {
       teamRequestSelect.addEventListener("change", () => {
         if (teamRequestName) {
           teamRequestName.value = teamRequestSelect.selectedOptions[0] ? teamRequestSelect.selectedOptions[0].textContent : "";
